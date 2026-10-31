@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an improvement to whatsgoingon.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Search existing issues first. If someone has suggested your idea, add your use case to that issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would this help you do?
+      description: Describe your use case and what is missing today.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What do you suggest?
+      description: Describe the behaviour you would like.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or examples
+      description: Optional workarounds, sketches, or examples that explain the idea.

@@ -21,8 +21,11 @@ import {
   worst,
 } from "../shared/board.ts";
 import { HistoryBars } from "./HistoryBars.tsx";
+import { AppearancePanel } from "./AppearancePanel.tsx";
+import { appearanceStyle } from "../shared/appearance.ts";
 
 const STORAGE = "whatsgoingon.board.v1";
+const GITHUB = "https://github.com/NicholasTing/whatsgoingon";
 type Catalogue = Omit<Provider, "feed">;
 type IncidentRow = Incident & { providerId: string; providerName: string };
 function initial(): { board: Board; message: string } {
@@ -168,7 +171,7 @@ export function App() {
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [incidentFilter, setIncidentFilter] = useState("all");
   const [modal, setModal] = useState<
-    "add" | "settings" | "integrations" | null
+    "add" | "settings" | "integrations" | "appearance" | null
   >(null);
   const [editing, setEditing] = useState<Monitor | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
@@ -420,7 +423,7 @@ export function App() {
     }
   }
   return (
-    <>
+    <div className="app-shell" style={appearanceStyle(board.appearance)}>
       <a className="skip" href="#main">
         Skip to status board
       </a>
@@ -430,7 +433,7 @@ export function App() {
             <rect width="32" height="32" rx="9" fill="currentColor" />
             <path
               d="M5 18h5l4-9 5 15 3-6h5"
-              stroke="white"
+              stroke="var(--on-accent)"
               strokeWidth="2"
               fill="none"
               strokeLinejoin="round"
@@ -442,11 +445,7 @@ export function App() {
         </a>
         <div className="header-right">
           <span className="privacy-note">No account. Your board.</span>
-          <a
-            href="https://github.com/NicholasTing/whatsgoingon"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a href={GITHUB} target="_blank" rel="noreferrer">
             Source ↗
           </a>
         </div>
@@ -455,11 +454,31 @@ export function App() {
         {!embed && (
           <section className="masthead">
             <div>
-              <p className="eyebrow">A LITTLE CLARITY FOR YOUR STACK</p>
-              <h1>What’s going on?</h1>
-              <p className="intro">Keep an eye on the services you rely on.</p>
+              <p className="eyebrow">YOUR SERVICE WATCHLIST</p>
+              <h1>Every service. One view.</h1>
+              <p className="intro">
+                Status, incidents, and history for the tools you rely on.
+              </p>
             </div>
             <div className="masthead-actions">
+              <button
+                className="secondary"
+                onClick={() => setModal("appearance")}
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden="true"
+                >
+                  <circle cx="10" cy="10" r="7" />
+                  <path d="M10 3v14M3 10h7" />
+                </svg>
+                Appearance
+              </button>
               <button
                 className="secondary"
                 onClick={() => setModal("settings")}
@@ -791,6 +810,49 @@ export function App() {
             )}
           </div>
         )}
+        {!embed && (
+          <section
+            className="feedback-section"
+            aria-labelledby="feedback-title"
+          >
+            <div>
+              <p className="eyebrow">HELP SHAPE WHAT'S NEXT</p>
+              <h2 id="feedback-title">Have an idea or found a bug?</h2>
+              <p className="muted small">
+                Browse existing issues or start a conversation on GitHub.
+              </p>
+            </div>
+            <div className="feedback-links">
+              <a
+                className="secondary"
+                href={`${GITHUB}/issues/new?template=feature-request.yml`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Request a feature ↗
+              </a>
+              <a
+                className="secondary"
+                href={`${GITHUB}/issues/new?template=bug-report.yml`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Report a bug ↗
+              </a>
+              <a
+                className="small"
+                href={`${GITHUB}/issues`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Browse issues ↗
+              </a>
+              <span className="small muted">
+                GitHub account and repository access required.
+              </span>
+            </div>
+          </section>
+        )}
         <footer>
           <span>
             Built for a quick look. Follow the provider for the full story.
@@ -798,6 +860,18 @@ export function App() {
           <span>Times in your timezone · daily history in UTC</span>
         </footer>
       </main>
+      {modal === "appearance" && (
+        <Dialog title="Appearance" close={() => setModal(null)} wide>
+          <AppearancePanel
+            appearance={board.appearance}
+            save={(appearance) => {
+              setBoard((old) => ({ ...old, appearance }));
+              setModal(null);
+              setMessage("Appearance saved to your board.");
+            }}
+          />
+        </Dialog>
+      )}
       {modal === "add" && (
         <AddServices
           catalog={catalog}
@@ -994,7 +1068,7 @@ export function App() {
           notifications={notifications}
         />
       )}
-    </>
+    </div>
   );
 }
 

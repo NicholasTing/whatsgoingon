@@ -1,3 +1,5 @@
+import type { Appearance } from "./appearance.ts";
+
 export type Health =
   "operational" | "degraded" | "outage" | "maintenance" | "unknown";
 export type Component = {
@@ -74,6 +76,7 @@ export type Board = {
   monitors: Monitor[];
   notifications: boolean;
   alertLevel: "all" | "outage";
+  appearance: Appearance;
 };
 export type Change = {
   id: string;

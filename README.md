@@ -24,6 +24,7 @@ The frontend reloads while you edit it. Restart the development server after cha
 - Public provider status, component and region filters, incident updates, and scheduled maintenance.
 - A searchable catalogue, plus custom Statuspage-compatible pages and public HTTPS endpoint checks. Endpoint checks include response time, optional expected text, and TLS certificate expiry.
 - Boards saved in your browser, groups, import/export, share links, and iframe embeds. Shared boards use fresh public data; each recipient controls their own copy.
+- An **Appearance** panel with light and dark presets, custom accent and status colours, a preview, and contrast checks. Appearance stays with the board when you reload, export, or share it.
 - Daily observations and retained incident reports in SQLite. Missing history stays unknown.
 - Browser alerts while the page is open. Your own running instance can send background alerts through generic webhooks, Slack, Discord, Teams workflows, or PagerDuty.
 - A read-only JSON API, incident RSS feed, and embeddable status badges.
@@ -94,6 +95,18 @@ npm run test:e2e
 ```
 
 Unit tests cover feed normalization, component scope, stale data, history gaps, public URL validation, configuration sharing, and webhook retries. Browser tests cover the Databricks flow, board isolation, keyboard navigation, mobile layout, automated accessibility, and credential handling. Browser tests use deterministic provider responses; live provider checks should also be performed when changing an adapter.
+
+CI runs these checks on pushes and pull requests, plus `npm audit --audit-level=high` for known dependency vulnerabilities. Dependabot proposes weekly npm and GitHub Actions updates. Major npm updates remain separate for review.
+
+The CodeQL workflow scans JavaScript and TypeScript on public repositories and skips private repositories. It also runs weekly and supports manual runs. See [GitHub's code scanning availability](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning). Standard GitHub-hosted runners are [free for public repositories](https://docs.github.com/en/billing/concepts/product-billing/github-actions); private repositories use the owner's included allowance.
+
+CodeRabbit is optional. Its [open-source plan](https://www.coderabbit.ai/pricing) offers free reviews for public repositories after an owner installs its GitHub App. It is not bundled with the app or required by CI.
+
+## Feedback
+
+Use **Request a feature** or **Report a bug** below the dashboard to open the matching GitHub issue form. You can also [browse existing issues](https://github.com/NicholasTing/whatsgoingon/issues). Submitting an issue requires a GitHub account and access to the repository; a private repository cannot accept reports from the general public.
+
+The forms are configured in `.github/ISSUE_TEMPLATE/` and apply the `bug` or `enhancement` label. GitHub Discussions can be enabled separately for broader conversations; issue forms cover the feedback flow here. If you fork the project, change `GITHUB` in `src/App.tsx` to direct feedback to your repository.
 
 ## Limits
 

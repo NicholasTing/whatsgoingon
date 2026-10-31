@@ -197,3 +197,122 @@ test("API blocks private targets, unknown providers and mutations without needin
   );
   expect(blocked.status()).toBe(400);
 });
+
+test("appearance validates colours, persists, exports, imports, and shares", async ({
+  page,
+  browser,
+}) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+  await page.getByRole("button", { name: "Midnight" }).click();
+  await page.getByLabel("Accent hex colour").fill("#19212e");
+  await expect(
+    page.getByText("Accent needs more contrast.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Apply appearance" }),
+  ).toBeDisabled();
+  await page.getByLabel("Accent hex colour").fill("#b8d2ff");
+  await page.getByRole("button", { name: "Apply appearance" }).click();
+  await expect(page.locator(".app-shell")).toHaveCSS(
+    "background-color",
+    "rgb(16, 21, 30)",
+  );
+  await page.reload();
+  await expect(page.locator(".app-shell")).toHaveCSS("--accent", "#b8d2ff");
+  await page.getByRole("button", { name: "Board settings" }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export board" }).click();
+  const download = await downloadPromise;
+  const contents = await readFile((await download.path())!, "utf8");
+  expect(JSON.parse(contents).appearance.accent).toBe("#b8d2ff");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+  await page.getByRole("button", { name: "Reset to default" }).click();
+  await page.getByRole("button", { name: "Apply appearance" }).click();
+  await expect(page.locator(".app-shell")).toHaveCSS(
+    "background-color",
+    "rgb(245, 246, 248)",
+  );
+  await page.getByRole("button", { name: "Board settings" }).click();
+  await page
+    .getByLabel("Import board")
+    .setInputFiles({
+      name: "board.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(contents),
+    });
+  await expect(page.locator(".app-shell")).toHaveCSS("--accent", "#b8d2ff");
+  const recipient = await browser.newPage();
+  await mockFeeds(recipient);
+  await recipient.goto("/#board=" + encodeURIComponent(contents));
+  await expect(recipient.locator(".app-shell")).toHaveCSS(
+    "--accent",
+    "#b8d2ff",
+  );
+  await recipient.close();
+});
+
+test("appearance and feedback are accessible in both themes and on mobile", async ({
+  page,
+}) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(
+    page.getByRole("link", { name: "Request a feature" }),
+  ).toHaveAttribute(
+    "href",
+    "https://github.com/NicholasTing/whatsgoingon/issues/new?template=feature-request.yml",
+  );
+  await expect(
+    page.getByRole("link", { name: "Report a bug" }),
+  ).toHaveAttribute(
+    "href",
+    "https://github.com/NicholasTing/whatsgoingon/issues/new?template=bug-report.yml",
+  );
+  for (const preset of ["Slate", "Midnight"]) {
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await page.getByRole("button", { name: preset }).click();
+    await page.getByRole("button", { name: "Apply appearance" }).click();
+    await expect(page.locator(".service")).toHaveCount(1);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await page
+          .getByRole("dialog")
+          .evaluate((element) => element.scrollWidth <= element.clientWidth),
+      ).toBe(true);
+    }
+    await page.getByRole("button", { name: "Forest" }).click();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("button", { name: "Appearance", exact: true }),
+    ).toBeFocused();
+    await expect(page.locator(".app-shell")).toHaveCSS(
+      "background-color",
+      preset === "Midnight" ? "rgb(16, 21, 30)" : "rgb(245, 246, 248)",
+    );
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+});

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { appearanceSchema, defaultAppearance } from "./appearance.ts";
 import type { Board, Monitor, Snapshot, Health, Change } from "./types.ts";
 
 const httpsUrl = z
@@ -41,6 +42,7 @@ export const boardSchema = z.object({
     ),
   notifications: z.boolean().default(false),
   alertLevel: z.enum(["all", "outage"]).default("all"),
+  appearance: appearanceSchema.default(defaultAppearance),
 });
 export function defaultBoard(): Board {
   return {
@@ -49,6 +51,7 @@ export function defaultBoard(): Board {
     monitors: [{ id: "databricks", componentIds: [], group: "" }],
     notifications: false,
     alertLevel: "all",
+    appearance: { ...defaultAppearance },
   };
 }
 export function readBoard(value: unknown): Board {

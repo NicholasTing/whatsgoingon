@@ -6,7 +6,7 @@ Run one continuously available app instance with a persistent disk, and keep bac
 
 | Data | Location | How to keep it |
 | --- | --- | --- |
-| Board name, selected monitors, components, groups, and alert preferences | Browser local storage | Use **Board settings → Export board** and keep the JSON file. Use **Import board** to restore it. |
+| Board name, selected monitors, components, groups, appearance, and alert preferences | Browser local storage | Use **Board settings → Export board** and keep the JSON file. Use **Import board** to restore it. |
 | Provider snapshots, incident reports, observation history, alert baselines, and queued deliveries | `status.sqlite` inside `DATA_DIR` | Retain the data volume and back it up. |
 | Background alert configuration | Your `WATCH_CONFIG` file | Keep a private copy outside the release directory, or mount it from your own secret store. Back it up separately. |
 

@@ -72,10 +72,10 @@ export function HistoryBars({
               height="5"
               patternUnits="userSpaceOnUse"
             >
-              <rect width="5" height="5" fill="#e7eae6" />
+              <rect width="5" height="5" fill="var(--soft)" />
               <path
                 d="M-1 1L1 -1M0 5L5 0M4 6L6 4"
-                stroke="#8c9691"
+                stroke="var(--muted)"
                 strokeWidth="1"
               />
             </pattern>
