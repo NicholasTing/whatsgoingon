@@ -19,6 +19,14 @@ Open <http://localhost:4173>. Databricks (AWS) is on the default board. Select i
 
 The frontend reloads while you edit it. Restart the development server after changing backend files.
 
+## Set up your organisation's page
+
+Choose your services, components, and colours, then select **Set up your own** below the dashboard. Enter a page name, choose a local preview or Docker setup, and copy the generated prompt into your coding agent. It includes your board configuration and asks the agent to make it the default for new visitors in your copy. Existing browser boards stay separate.
+
+You can also copy the [standalone setup prompt](docs/setup-prompt.md). Append your exported board JSON and any hosting or public brand details. Without those details, the prompt starts with the repository's default board and a local preview. The coding agent needs access to this repository; private repositories require GitHub access.
+
+Review custom monitor URLs before sharing the prompt. Keep credentials in your own environment. The prompt prepares an agent task; it does not run or deploy the app from your browser.
+
 ## What you can use
 
 - Public provider status, component and region filters, incident updates, and scheduled maintenance.

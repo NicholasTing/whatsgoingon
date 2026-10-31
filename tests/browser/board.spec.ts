@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
+import { defaultBoard } from "../../shared/board.ts";
+import { presets } from "../../shared/appearance.ts";
 
 async function mockFeeds(page: Page) {
   await page.route("**/api/status/**", (route) => {
@@ -236,13 +238,11 @@ test("appearance validates colours, persists, exports, imports, and shares", asy
     "rgb(245, 246, 248)",
   );
   await page.getByRole("button", { name: "Board settings" }).click();
-  await page
-    .getByLabel("Import board")
-    .setInputFiles({
-      name: "board.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(contents),
-    });
+  await page.getByLabel("Import board").setInputFiles({
+    name: "board.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(contents),
+  });
   await expect(page.locator(".app-shell")).toHaveCSS("--accent", "#b8d2ff");
   const recipient = await browser.newPage();
   await mockFeeds(recipient);
@@ -315,4 +315,116 @@ test("appearance and feedback are accessible in both themes and on mobile", asyn
     );
     await page.setViewportSize({ width: 1280, height: 900 });
   }
+});
+
+test("setup prompt copies the selected board without changing it or including unexpected credentials", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const board = {
+    ...defaultBoard(),
+    notifications: true,
+    appearance: presets[1].appearance,
+    monitors: [
+      { id: "databricks", componentIds: ["sql:au"], group: "Data" },
+      { id: "claude", componentIds: [], group: "AI" },
+    ],
+  };
+  await page.addInitScript(
+    (value) =>
+      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(value)),
+    { ...board, webhook: "never-copy-this-test-secret" },
+  );
+  await mockFeeds(page);
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Set up your own", exact: true })
+    .click();
+  await page
+    .getByLabel("Organisation or page name")
+    .fill("Example team status");
+  await page.getByLabel("Setup target").selectOption("docker");
+  const prompt = await page
+    .getByLabel("Setup prompt", { exact: true })
+    .inputValue();
+  const configuration = JSON.parse(
+    prompt.split("```json\n")[1].split("\n```")[0],
+  );
+  expect(configuration).toEqual({
+    ...board,
+    name: "Example team status",
+    notifications: false,
+  });
+  expect(prompt).toContain(
+    "Docker setup. Start locally unless I supply a hosting destination.",
+  );
+  expect(prompt).toContain("docs/persistence.md");
+  expect(prompt).not.toContain("never-copy-this-test-secret");
+  await page
+    .getByRole("button", { name: "Copy setup prompt", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Prompt copied.");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    prompt,
+  );
+  await page.keyboard.press("Escape");
+  expect(
+    await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!),
+    ),
+  ).toEqual(board);
+});
+
+test("setup prompt has a manual-copy fallback and fits an accessible mobile dialog", async ({
+  page,
+}) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async () => {
+          throw new Error("Clipboard denied");
+        },
+      },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Set up your own", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Copy setup prompt", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("copy it manually");
+  const prompt = page.getByLabel("Setup prompt", { exact: true });
+  await expect(prompt).toBeFocused();
+  expect(
+    await prompt.evaluate(
+      (element: HTMLTextAreaElement) =>
+        element.selectionEnd - element.selectionStart,
+    ),
+  ).toBe((await prompt.inputValue()).length);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Set up your own", exact: true }),
+  ).toBeFocused();
 });

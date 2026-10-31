@@ -620,7 +620,8 @@ footer {
 .unknown {
   --state: var(--muted);
 }
-.feedback-section {
+.feedback-section,
+.setup-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -634,11 +635,13 @@ footer {
 .feedback-section .eyebrow {
   margin-bottom: 8px;
 }
-.feedback-section h2 {
+.feedback-section h2,
+.setup-section h2 {
   font-size: 18px;
   margin-bottom: 8px;
 }
-.feedback-section p:last-child {
+.feedback-section p:last-child,
+.setup-section p:last-child {
   margin-bottom: 0;
 }
 .feedback-links {
@@ -654,6 +657,40 @@ footer {
 .feedback-links > span {
   flex-basis: 100%;
   font-size: 11px;
+}
+.setup-section {
+  background: var(--soft);
+}
+.setup-section .primary {
+  flex-shrink: 0;
+}
+.setup-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 22px 0 16px;
+}
+.setup-fields input,
+.setup-fields select {
+  min-width: 0;
+  width: 100%;
+}
+.setup-field {
+  display: grid;
+  gap: 7px;
+}
+.setup-body .setup-field + p {
+  margin-top: 12px;
+}
+.setup-body .setup-prompt {
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.setup-body .notice {
+  margin-bottom: 0;
 }
 .preset-fieldset {
   border: 0;
@@ -1076,6 +1113,15 @@ pre {
     align-items: start;
     padding: 20px;
     gap: 20px;
+  }
+  .setup-section {
+    flex-direction: column;
+    align-items: start;
+    padding: 20px;
+    gap: 18px;
+  }
+  .setup-fields {
+    grid-template-columns: 1fr;
   }
   .masthead-actions .secondary {
     flex: 1;

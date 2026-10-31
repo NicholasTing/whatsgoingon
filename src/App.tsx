@@ -22,6 +22,7 @@ import {
 } from "../shared/board.ts";
 import { HistoryBars } from "./HistoryBars.tsx";
 import { AppearancePanel } from "./AppearancePanel.tsx";
+import { SetupPanel } from "./SetupPanel.tsx";
 import { appearanceStyle } from "../shared/appearance.ts";
 
 const STORAGE = "whatsgoingon.board.v1";
@@ -171,7 +172,7 @@ export function App() {
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [incidentFilter, setIncidentFilter] = useState("all");
   const [modal, setModal] = useState<
-    "add" | "settings" | "integrations" | "appearance" | null
+    "add" | "settings" | "integrations" | "appearance" | "setup" | null
   >(null);
   const [editing, setEditing] = useState<Monitor | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
@@ -811,6 +812,20 @@ export function App() {
           </div>
         )}
         {!embed && (
+          <section className="setup-section" aria-labelledby="setup-title">
+            <div>
+              <h2 id="setup-title">Make it your team's status page</h2>
+              <p className="small muted">
+                Take this board's services and colours with you. Copy a prompt
+                to set up your own instance with a coding agent.
+              </p>
+            </div>
+            <button className="primary" onClick={() => setModal("setup")}>
+              Set up your own
+            </button>
+          </section>
+        )}
+        {!embed && (
           <section
             className="feedback-section"
             aria-labelledby="feedback-title"
@@ -860,6 +875,11 @@ export function App() {
           <span>Times in your timezone · daily history in UTC</span>
         </footer>
       </main>
+      {modal === "setup" && (
+        <Dialog title="Set up your own" close={() => setModal(null)} wide>
+          <SetupPanel board={board} />
+        </Dialog>
+      )}
       {modal === "appearance" && (
         <Dialog title="Appearance" close={() => setModal(null)} wide>
           <AppearancePanel
