@@ -1,0 +1,26 @@
+
+> whatsgoingon@0.1.0 test:e2e
+> playwright test
+
+[WebServer] (node:40790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:40838) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 11 tests using 1 worker
+
+(node:40967) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser/board.spec.ts:59:1 › Databricks component scope saves, reloads, and shares without affecting another browser (685ms)
+  ✓   2 tests/browser/board.spec.ts:108:1 › users can add Claude and Codex, search the board, and navigate daily bars by keyboard (261ms)
+  ✓   3 tests/browser/board.spec.ts:132:1 › webhook credentials only enter the user download, never requests, browser storage, or shared state (201ms)
+  ✓   4 tests/browser/board.spec.ts:160:1 › overview and component selection pass automated accessibility checks and fit mobile (611ms)
+  ✓   5 tests/browser/board.spec.ts:195:1 › API blocks private targets, unknown providers and mutations without needing sign-in (19ms)
+  ✓   6 tests/browser/board.spec.ts:209:1 › appearance validates colours, persists, exports, imports, and shares (638ms)
+  ✓   7 tests/browser/board.spec.ts:263:1 › appearance and feedback are accessible in both themes and on mobile (1.3s)
+  ✓   8 tests/browser/board.spec.ts:326:1 › setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials (250ms)
+  ✓   9 tests/browser/board.spec.ts:387:1 › setup prompt has a manual-copy fallback and fits an accessible mobile dialog (425ms)
+  ✓  10 tests/browser/board.spec.ts:459:1 › history opens scoped UTC reports by pointer and keyboard, with an honest empty state (842ms)
+  ✓  11 tests/browser/board.spec.ts:561:1 › current status and inline maintenance open reports; local-only outages explain missing reports (322ms)
+
+  11 passed (8.0s)
