@@ -1,0 +1,25 @@
+
+> whatsgoingon@0.1.0 test:e2e
+> playwright test
+
+[WebServer] (node:18527) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:18561) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 10 tests using 1 worker
+
+(node:18598) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser/board.spec.ts:57:1 › Databricks component scope saves, reloads, and shares without affecting another browser (673ms)
+  ✓   2 tests/browser/board.spec.ts:104:1 › users can add Claude and Codex, search the board, and navigate daily bars by keyboard (284ms)
+  ✓   3 tests/browser/board.spec.ts:128:1 › webhook credentials only enter the user download, never requests, browser storage, or shared state (217ms)
+  ✓   4 tests/browser/board.spec.ts:156:1 › overview and component selection pass automated accessibility checks and fit mobile (584ms)
+  ✓   5 tests/browser/board.spec.ts:189:1 › API blocks private targets, unknown providers and mutations without needing sign-in (20ms)
+  ✓   6 tests/browser/board.spec.ts:203:1 › appearance validates colours, persists, exports, imports, and shares (605ms)
+  ✓   7 tests/browser/board.spec.ts:257:1 › appearance and feedback are accessible in both themes and on mobile (1.3s)
+  ✓   8 tests/browser/board.spec.ts:320:1 › setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials (274ms)
+  ✓   9 tests/browser/board.spec.ts:381:1 › setup prompt has a manual-copy fallback and fits an accessible mobile dialog (428ms)
+  ✓  10 tests/browser/board.spec.ts:435:1 › new boards start dark with readable status labels and matching previews (461ms)
+
+  10 passed (7.3s)
