@@ -444,23 +444,11 @@ export function App() {
             whatsgoingon<span className="brand-dot">.</span>
           </span>
         </a>
-        <div className="header-right">
-          <span className="privacy-note">No account. Your board.</span>
-          <a href={GITHUB} target="_blank" rel="noreferrer">
-            Source ↗
-          </a>
-        </div>
       </header>
       <main id="main" className={embed ? "embedded" : ""}>
         {!embed && (
           <section className="masthead">
-            <div>
-              <p className="eyebrow">YOUR SERVICE WATCHLIST</p>
-              <h1>Every service. One view.</h1>
-              <p className="intro">
-                Status, incidents, and history for the tools you rely on.
-              </p>
-            </div>
+            <h1>Service status</h1>
             <div className="masthead-actions">
               <button
                 className="secondary"
@@ -811,67 +799,24 @@ export function App() {
             )}
           </div>
         )}
-        {!embed && (
-          <section className="setup-section" aria-labelledby="setup-title">
-            <div>
-              <h2 id="setup-title">Make it your team's status page</h2>
-              <p className="small muted">
-                Copy a prompt to audit your codebase, review its dependencies,
-                and start a dashboard with Claude and Codex included.
-              </p>
-            </div>
-            <button className="primary" onClick={() => setModal("setup")}>
-              Set up your own
-            </button>
-          </section>
-        )}
-        {!embed && (
-          <section
-            className="feedback-section"
-            aria-labelledby="feedback-title"
-          >
-            <div>
-              <p className="eyebrow">HELP SHAPE WHAT'S NEXT</p>
-              <h2 id="feedback-title">Have an idea or found a bug?</h2>
-              <p className="muted small">
-                Browse existing issues or start a conversation on GitHub.
-              </p>
-            </div>
-            <div className="feedback-links">
-              <a
-                className="secondary"
-                href={`${GITHUB}/issues/new?template=feature-request.yml`}
-                target="_blank"
-                rel="noreferrer"
-              >
+        <footer>
+          {!embed && (
+            <nav className="footer-actions" aria-label="Setup and feedback">
+              <button className="text-button" onClick={() => setModal("setup")}>
+                Set up your own
+              </button>
+              <a href={`${GITHUB}/issues/new?template=feature-request.yml`} target="_blank" rel="noreferrer">
                 Request a feature ↗
               </a>
-              <a
-                className="secondary"
-                href={`${GITHUB}/issues/new?template=bug-report.yml`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a href={`${GITHUB}/issues/new?template=bug-report.yml`} target="_blank" rel="noreferrer">
                 Report a bug ↗
               </a>
-              <a
-                className="small"
-                href={`${GITHUB}/issues`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a href={`${GITHUB}/issues`} target="_blank" rel="noreferrer">
                 Browse issues ↗
               </a>
-              <span className="small muted">
-                GitHub account and repository access required.
-              </span>
-            </div>
-          </section>
-        )}
-        <footer>
-          <span>
-            Built for a quick look. Follow the provider for the full story.
-          </span>
+              <a href={GITHUB} target="_blank" rel="noreferrer">Source ↗</a>
+            </nav>
+          )}
           <span>Times in your timezone · daily history in UTC</span>
         </footer>
       </main>
