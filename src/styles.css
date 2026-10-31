@@ -124,15 +124,6 @@ strong {
 .brand-dot {
   color: var(--accent);
 }
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 27px;
-  font-size: 13px;
-}
-.privacy-note {
-  color: var(--muted);
-}
 main {
   max-width: 1050px;
   margin: auto;
@@ -158,11 +149,6 @@ h1 {
   font-weight: 650;
   margin-bottom: 12px;
   line-height: 1.1;
-}
-.intro {
-  color: var(--muted);
-  margin-bottom: 0;
-  font-size: 16px;
 }
 .masthead-actions,
 .flex,
@@ -590,6 +576,7 @@ h1 {
 }
 footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 18px;
   font-size: 10px;
@@ -620,49 +607,12 @@ footer {
 .unknown {
   --state: var(--muted);
 }
-.feedback-section,
-.setup-section {
+.footer-actions {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 28px;
-  margin: 38px 0 26px;
-  padding: 24px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-.feedback-section .eyebrow {
-  margin-bottom: 8px;
-}
-.feedback-section h2,
-.setup-section h2 {
-  font-size: 18px;
-  margin-bottom: 8px;
-}
-.feedback-section p:last-child,
-.setup-section p:last-child {
-  margin-bottom: 0;
-}
-.feedback-links {
-  display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  max-width: 330px;
-}
-.feedback-links a {
-  text-decoration: none;
-}
-.feedback-links > span {
-  flex-basis: 100%;
-  font-size: 11px;
-}
-.setup-section {
-  background: var(--soft);
-}
-.setup-section .primary {
-  flex-shrink: 0;
+  gap: 8px 18px;
+  font-size: 12px;
 }
 .setup-fields {
   display: grid;
@@ -1108,18 +1058,6 @@ pre {
   .preset .small {
     font-size: 10px;
   }
-  .feedback-section {
-    flex-direction: column;
-    align-items: start;
-    padding: 20px;
-    gap: 20px;
-  }
-  .setup-section {
-    flex-direction: column;
-    align-items: start;
-    padding: 20px;
-    gap: 18px;
-  }
   .setup-fields {
     grid-template-columns: 1fr;
   }
@@ -1133,9 +1071,6 @@ pre {
   .brand {
     white-space: nowrap;
     font-size: 18px;
-  }
-  .privacy-note {
-    display: none;
   }
   main {
     padding: 35px 18px 15px;
