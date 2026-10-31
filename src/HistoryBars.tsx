@@ -20,11 +20,11 @@ export function HistoryBars({
     ? `${day.reports} provider report${day.reports === 1 ? "" : "s"}`
     : "No provider reports recorded";
   const coverage = day?.complete
-    ? "Continuous local coverage"
+    ? "Near-complete local coverage"
     : "Incomplete local coverage; health between checks is unknown";
   const description = day
     ? `${day.date} (UTC): ${labels[day.state]}. ${checks}. ${reports}. ${coverage}.`
-    : "Loading recorded history";
+    : "Recorded history is unavailable";
   const select = (element: HTMLElement, x: number) => {
     const rect = element.getBoundingClientRect();
     setIndex(
@@ -116,7 +116,9 @@ export function HistoryBars({
       <div className="history-labels">
         <span>90 days ago</span>
         <span className="history-description">
-          {active
+          {!history
+            ? "Recorded history is unavailable"
+            : active
             ? description
             : history?.days.some((d) => d.samples || d.reports)
               ? "Local checks and provider reports · coverage may be incomplete"

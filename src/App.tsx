@@ -712,7 +712,7 @@ export function App() {
                 </span>
               ))}
               <span>
-                Hatched days lack full local coverage; incident colours can
+                Hatching indicates an unknown state or incomplete local coverage; incident colours can
                 still have gaps.
               </span>
             </div>

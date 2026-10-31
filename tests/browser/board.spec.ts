@@ -432,6 +432,21 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
   ).toBeFocused();
 });
 
+test("unavailable history is distinct from a returned history with no records", async ({ page }) => {
+  await mockFeeds(page);
+  let unavailable = true;
+  await page.route("**/api/history/**", (route) =>
+    unavailable ? route.abort() : route.fallback(),
+  );
+  await page.goto("/");
+  await expect(page.locator(".history-description")).toHaveText("Recorded history is unavailable");
+  await page.getByRole("slider").focus();
+  await expect(page.getByRole("slider")).toHaveAttribute("aria-valuetext", "Recorded history is unavailable");
+  unavailable = false;
+  await page.reload();
+  await expect(page.locator(".history-description")).toHaveText("No local checks or provider reports recorded yet");
+});
+
 test("history explains missing local checks separately from provider reports on hover and focus", async ({
   page,
 }, testInfo) => {
@@ -444,9 +459,9 @@ test("history explains missing local checks separately from provider reports on 
             .toISOString()
             .slice(0, 10),
           state: i === 88 ? "outage" : i === 87 ? "operational" : "unknown",
-          samples: i === 87 ? 1 : 0,
+          samples: i === 87 ? 1 : i === 86 ? 250 : 0,
           reports: i === 88 ? 2 : 0,
-          complete: false,
+          complete: i === 86,
         })),
         observedSince: null,
         source: "observations",
@@ -488,6 +503,10 @@ test("history explains missing local checks separately from provider reports on 
     /1 local check recorded.*No provider reports recorded.*Incomplete local coverage/,
   );
   await expect(bars.locator("rect.bar").nth(87)).toHaveAttribute("fill", /url/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(bars).toHaveAttribute("aria-valuetext", /Unknown.*Near-complete local coverage/);
+  await expect(bars.locator("rect.bar").nth(86)).toHaveAttribute("fill", /url/);
+  await expect(page.getByText(/Hatching indicates an unknown state or incomplete local coverage/)).toBeVisible();
   const box = (await bars.boundingBox())!;
   await bars.hover({ position: { x: (box.width * 88.5) / 90, y: 16 } });
   await expect(page.locator(".history-description")).toContainText(

@@ -171,7 +171,7 @@ export class Store {
       observedSince: spans[0] ? new Date(spans[0].start).toISOString() : null,
       source: "observations",
       warning:
-        "Local checks and provider reports are separate evidence, not measured uptime. A report can colour a day with no local checks; missing coverage stays unknown.",
+        "Local checks and provider reports are separate evidence, not measured uptime. A report can colour a day with no local checks; days with neither local checks nor provider reports stay unknown.",
     };
   }
   prune(now = Date.now()): void {
