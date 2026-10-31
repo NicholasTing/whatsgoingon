@@ -19,6 +19,18 @@ Open <http://localhost:4173>. Databricks (AWS) is on the default board. Select i
 
 The frontend reloads while you edit it. Restart the development server after changing backend files.
 
+## Set up your organisation's page
+
+Select **Set up your own** in the footer, enter a page name, and choose a local preview or Docker setup. Copy the prompt into a coding-agent session opened in **your organisation's repository**. The agent audits application code, manifests, infrastructure, CI, and tool configuration before setting up the dashboard.
+
+The audit produces an inventory with file-and-line evidence, confidence, product/region scope, and proposed monitors. It includes Claude and Codex as setup defaults. Review the list with the agent, resolve uncertain scopes, and add or remove services. Your current board is a starting point; the final board also includes the agreed audit findings. Unsupported or private services remain visible as gaps.
+
+The agent then configures and starts the dashboard in a separate directory. It sets the agreed board as the default for new visitors and exports it for existing browsers. It monitors the dependencies it finds; it does not provision the organisation's infrastructure.
+
+You can also copy the [standalone setup prompt](docs/setup-prompt.md) and append your board JSON or hosting preferences. Without a starting board, it uses the audit findings, Claude, Codex, and a local preview. The agent needs access to both the organisation codebase and this repository; private repositories require GitHub access.
+
+Review custom monitor URLs before sharing the prompt. Keep credentials in your own environment. The prompt prepares an agent task; it does not run or deploy the app from your browser.
+
 ## What you can use
 
 - Public provider status, component and region filters, incident updates, and scheduled maintenance.
@@ -100,13 +112,17 @@ CI runs these checks on pushes and pull requests, plus `npm audit --audit-level=
 
 The CodeQL workflow scans JavaScript and TypeScript on public repositories and skips private repositories. It also runs weekly and supports manual runs. See [GitHub's code scanning availability](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning). Standard GitHub-hosted runners are [free for public repositories](https://docs.github.com/en/billing/concepts/product-billing/github-actions); private repositories use the owner's included allowance.
 
-CodeRabbit is optional. Its [open-source plan](https://www.coderabbit.ai/pricing) offers free reviews for public repositories after an owner installs its GitHub App. It is not bundled with the app or required by CI.
+Pull requests receive automated reviews from [CodeRabbit](https://www.coderabbit.ai), configured in `.coderabbit.yaml`. It is free for public repositories and is not bundled with the app or required by CI. Forks need their own installation if they want it.
 
 ## Feedback
 
-Use **Request a feature** or **Report a bug** below the dashboard to open the matching GitHub issue form. You can also [browse existing issues](https://github.com/NicholasTing/whatsgoingon/issues). Submitting an issue requires a GitHub account and access to the repository; a private repository cannot accept reports from the general public.
+Use **Request a feature** or **Report a bug** in the footer to open the matching GitHub issue form. You can also [browse existing issues](https://github.com/NicholasTing/whatsgoingon/issues). Submitting an issue requires a GitHub account and access to the repository; a private repository cannot accept reports from the general public.
 
 The forms are configured in `.github/ISSUE_TEMPLATE/` and apply the `bug` or `enhancement` label. GitHub Discussions can be enabled separately for broader conversations; issue forms cover the feedback flow here. If you fork the project, change `GITHUB` in `src/App.tsx` to direct feedback to your repository.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and the pull request process, and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Limits
 

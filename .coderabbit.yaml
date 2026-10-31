@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-AU
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!package-lock.json"
+    - "!dist/**"
+    - "!docs/preview.png"
+  path_instructions:
+    - path: "server/**"
+      instructions: >-
+        The server fetches untrusted public URLs. Check SSRF protections (public HTTPS only,
+        DNS pinning, no redirects, private-network blocking), response size limits, rate
+        limits, and that no credentials are logged or persisted unintentionally.
+    - path: "src/**"
+      instructions: >-
+        Check keyboard access, accessible names, and colour contrast. Board data from share
+        links and imports is untrusted input.
+chat:
+  auto_reply: true
