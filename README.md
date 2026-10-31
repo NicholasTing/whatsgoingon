@@ -2,7 +2,7 @@
 
 A personal status board for the services you rely on. Open it, choose providers and components, and keep an eye on incidents. No sign-in or provider credentials required.
 
-![A board showing Databricks, Claude and Codex with daily status history](docs/preview.png)
+![Dark dashboard showing Databricks, Claude and Codex with unknown history (test data)](docs/preview.png)
 
 ## Try it
 
@@ -21,7 +21,7 @@ The frontend reloads while you edit it. Restart the development server after cha
 
 ## Set up your organisation's page
 
-Select **Set up your own** in the footer, enter a page name, and choose a local preview or Docker setup. Copy the prompt into a coding-agent session opened in **your organisation's repository**. The agent audits application code, manifests, infrastructure, CI, and tool configuration before setting up the dashboard.
+Select **Set up your own** in the footer, optionally enter a page name, and choose a local preview or Docker setup. Copy the prompt into a coding-agent session opened in **your organisation's repository**. The agent audits application code, manifests, infrastructure, CI, and tool configuration before setting up the dashboard.
 
 The audit produces an inventory with file-and-line evidence, confidence, product/region scope, and proposed monitors. It includes Claude and Codex as setup defaults. Review the list with the agent, resolve uncertain scopes, and add or remove services. Your current board is a starting point; the final board also includes the agreed audit findings. Unsupported or private services remain visible as gaps.
 
@@ -36,8 +36,8 @@ Review custom monitor URLs before sharing the prompt. Keep credentials in your o
 - Public provider status, component and region filters, incident updates, and scheduled maintenance.
 - A searchable catalogue, plus custom Statuspage-compatible pages and public HTTPS endpoint checks. Endpoint checks include response time, optional expected text, and TLS certificate expiry.
 - Boards saved in your browser, groups, import/export, share links, and iframe embeds. Shared boards use fresh public data; each recipient controls their own copy.
-- An **Appearance** panel with light and dark presets, custom accent and status colours, a preview, and contrast checks. Appearance stays with the board when you reload, export, or share it.
-- Daily observations and retained incident reports in SQLite. Missing history stays unknown.
+- Dark appearance for new and legacy boards without a saved theme; explicit saved choices stay intact. An **Appearance** panel with light and dark presets, custom accent and status colours, a preview, and contrast checks. Appearance stays with the board when you reload, export, or share it.
+- Daily observations and retained incident reports in SQLite. Select a history day (click, or arrow keys then Enter/Space) or current status to inspect related reports and open the official incident. Reports follow your selected components and UTC dates. Missing reports and history remain explicit.
 - Browser alerts while the page is open. Your own running instance can send background alerts through generic webhooks, Slack, Discord, Teams workflows, or PagerDuty.
 - A read-only JSON API, incident RSS feed, and embeddable status badges.
 

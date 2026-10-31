@@ -1,13 +1,15 @@
 import { useId, useState } from "react";
-import type { History } from "../shared/types.ts";
+import type { DailyStatus, History } from "../shared/types.ts";
 import { labels } from "../shared/types.ts";
 
 export function HistoryBars({
   name,
   history,
+  onSelect,
 }: {
   name: string;
   history?: History;
+  onSelect: (day: DailyStatus) => void;
 }) {
   const [index, setIndex] = useState(89);
   const [active, setActive] = useState(false);
@@ -27,12 +29,12 @@ export function HistoryBars({
     : "Recorded history is unavailable";
   const select = (element: HTMLElement, x: number) => {
     const rect = element.getBoundingClientRect();
-    setIndex(
-      Math.max(
-        0,
-        Math.min(89, Math.floor(((x - rect.left) / rect.width) * 90)),
-      ),
+    const selected = Math.max(
+      0,
+      Math.min(89, Math.floor(((x - rect.left) / rect.width) * 90)),
     );
+    setIndex(selected);
+    return selected;
   };
   return (
     <div className="history">
@@ -40,7 +42,7 @@ export function HistoryBars({
         className="bars"
         role="slider"
         tabIndex={0}
-        aria-label={`${name} daily observations. Use arrow keys to choose a day.`}
+        aria-label={`${name} daily observations. Use arrow keys to choose a day, then Enter to open reports.`}
         aria-valuemin={1}
         aria-valuemax={90}
         aria-valuenow={index + 1}
@@ -58,7 +60,16 @@ export function HistoryBars({
           select(e.currentTarget, e.clientX);
           e.currentTarget.focus();
         }}
+        onClick={(e) => {
+          const selected = history?.days[select(e.currentTarget, e.clientX)];
+          if (selected) onSelect(selected);
+        }}
         onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (day) onSelect(day);
+            return;
+          }
           const next =
             e.key === "ArrowLeft" || e.key === "ArrowDown"
               ? index - 1

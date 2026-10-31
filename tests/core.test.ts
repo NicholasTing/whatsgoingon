@@ -7,6 +7,7 @@ import {
   boardFromHash,
   scoped,
   changesBetween,
+  incidentsForDay,
 } from "../shared/board.ts";
 import type { Snapshot, Incident } from "../shared/types.ts";
 import { parseStatusio, parseStatuspage } from "../server/feeds.ts";
@@ -461,6 +462,92 @@ test("a user-configured collector filters scope, enqueues changes and retains it
     store.close();
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("daily reports share the history component scope and UTC boundaries", () => {
+  const reports: Incident[] = [
+    {
+      ...incident,
+      id: "cross-midnight",
+      active: false,
+      startedAt: "2026-10-29T23:30:00Z",
+      endedAt: "2026-10-30T01:00:00Z",
+    },
+    {
+      ...incident,
+      id: "ended-at-midnight",
+      active: false,
+      startedAt: "2026-10-29T23:00:00Z",
+      endedAt: "2026-10-30T00:00:00Z",
+    },
+    { ...incident, id: "next-day", startedAt: "2026-10-31T00:00:00Z" },
+    {
+      ...incident,
+      id: "unrelated",
+      startedAt: "2026-10-30T01:00:00Z",
+      componentIds: ["sql:au"],
+    },
+    {
+      ...incident,
+      id: "provider-wide",
+      startedAt: "2026-10-30T01:00:00Z",
+      componentIds: [],
+    },
+    {
+      ...incident,
+      id: "scheduled",
+      startedAt: "2026-10-30T01:00:00Z",
+      status: "scheduled",
+      active: false,
+    },
+    { ...incident, id: "no-date", startedAt: null },
+    {
+      ...incident,
+      id: "missing-end",
+      active: false,
+      startedAt: "2026-10-29T23:00:00Z",
+      endedAt: null,
+    },
+  ];
+  const monitor = { ...defaultBoard().monitors[0], componentIds: ["sql:us"] };
+  const matches = incidentsForDay(
+    reports,
+    monitor,
+    "2026-10-30",
+    Date.parse(at),
+  );
+  assert.deepEqual(
+    matches.map((i) => i.id),
+    ["cross-midnight", "provider-wide"],
+  );
+  const store = new Store(":memory:");
+  try {
+    store.save(snapshot({ incidents: reports }));
+    const day = store
+      .history("databricks", monitor, Date.parse(at))
+      .days.at(-2)!;
+    assert.equal(day.state, "outage");
+    assert.equal(day.samples, 0);
+    assert.equal(day.complete, false);
+    assert.equal(
+      incidentsForDay(reports, monitor, "2026-10-28", Date.parse(at)).length,
+      0,
+    );
+  } finally {
+    store.close();
+  }
+});
+
+test("unnamed boards load and share while existing names remain intact", () => {
+  const { name, ...unnamed } = defaultBoard();
+  assert.equal(name, "");
+  assert.equal(readBoard(unnamed).name, "");
+  for (const name of ["", "My status board", "Data team"]) {
+    const board = readBoard({ ...unnamed, name });
+    assert.equal(board.name, name);
+    assert.equal(boardFromHash(shareBoard(board))?.name, name);
+  }
+  assert.throws(() => readBoard({ ...unnamed, name: "x".repeat(81) }));
 });
 
 test("empty history and incident-only history distinguish local checks from reports", () => {

@@ -8,7 +8,7 @@ import type {
   Health,
   Monitor,
 } from "../shared/types.ts";
-import { scoped, worst } from "../shared/board.ts";
+import { incidentsForDay, scoped, worst } from "../shared/board.ts";
 
 const DAY = 86_400_000;
 type Span = { start: number; end: number; count: number; states: string };
@@ -148,15 +148,11 @@ export class Store {
           span.end,
         ).state;
       });
-      const reports = incidents.filter(
-        (i) =>
-          (!monitor.componentIds.length ||
-            !i.componentIds.length ||
-            i.componentIds.some((c) => monitor.componentIds.includes(c))) &&
-          i.startedAt &&
-          Date.parse(i.startedAt) < end &&
-          (i.active ? now : Date.parse(i.endedAt ?? i.startedAt)) >= start &&
-          i.status !== "scheduled",
+      const reports = incidentsForDay(
+        incidents,
+        monitor,
+        new Date(start).toISOString().slice(0, 10),
+        now,
       );
       return {
         date: new Date(start).toISOString().slice(0, 10),

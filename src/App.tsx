@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type {
   Board,
   Change,
+  DailyStatus,
   Health,
   History,
   Incident,
@@ -10,11 +11,12 @@ import type {
   Provider,
   Snapshot,
 } from "../shared/types.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
 import {
   boardFromHash,
   changesBetween,
   defaultBoard,
+  incidentsForDay,
   readBoard,
   scoped,
   shareBoard,
@@ -89,8 +91,9 @@ function when(value: string | null): string {
 function Badge({ state, text }: { state: Health; text?: string }) {
   return (
     <span className={`badge ${state}`}>
-      <span aria-hidden="true">{symbols[state]}</span>
-      {text ?? labels[state]}
+      {text && text !== "Checking"
+        ? `${labels[state]} · ${text}`
+        : text ?? labels[state]}
     </span>
   );
 }
@@ -178,6 +181,11 @@ export function App() {
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
     null,
   );
+  const [reportSelection, setReportSelection] = useState<{
+    title: string;
+    reports: IncidentRow[];
+    state: Health;
+  } | null>(null);
   const previous = useRef<Record<string, Snapshot>>({});
   const notificationPrefs = useRef(board);
   notificationPrefs.current = board;
@@ -268,22 +276,22 @@ export function App() {
                   }
                 }
             }
-            setSnapshots((old) => ({ ...old, [monitor.id]: snapshot }));
+            setSnapshots((old) => ({ ...old, [apiUrl("status", monitor)]: snapshot }));
             if (historyResult.status === "fulfilled")
               setHistories((old) => ({
                 ...old,
-                [monitor.id]: historyResult.value,
+                [apiUrl("history", monitor)]: historyResult.value,
               }));
             setFailures((old) => {
               const copy = { ...old };
-              delete copy[monitor.id];
+              delete copy[apiUrl("status", monitor)];
               return copy;
             });
           } catch (error) {
             if (!controller.signal.aborted)
               setFailures((old) => ({
                 ...old,
-                [monitor.id]:
+                [apiUrl("status", monitor)]:
                   error instanceof Error ? error.message : "Could not refresh.",
               }));
           }
@@ -313,9 +321,9 @@ export function App() {
   }, []);
   const items = board.monitors.map((monitor) => {
     const provider = catalog.find((p) => p.id === monitor.id);
-    const raw = snapshots[monitor.id];
+    const raw = snapshots[apiUrl("status", monitor)];
     const snapshot = raw ? scoped(raw, monitor, now) : undefined;
-    if (snapshot && failures[monitor.id]) {
+    if (snapshot && failures[apiUrl("status", monitor)]) {
       snapshot.state = "unknown";
       snapshot.stale = true;
     }
@@ -370,6 +378,28 @@ export function App() {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  function openReports(
+    monitor: Monitor,
+    name: string,
+    snapshot?: Snapshot,
+    day?: DailyStatus,
+  ) {
+    const reports = (
+      day
+        ? incidentsForDay(snapshot?.incidents ?? [], monitor, day.date)
+        : (snapshot?.incidents.filter((incident) => incident.active) ?? [])
+    ).map((incident) => ({
+      ...incident,
+      providerId: monitor.id,
+      providerName: name,
+    }));
+    setReportSelection({
+      title: `${name} · ${day ? `${day.date} (UTC)` : "Current status"}`,
+      reports,
+      state: day?.state ?? snapshot?.state ?? "unknown",
+    });
+    setSelectedIncident(reports[0] ?? null);
+  }
   function add(id: string) {
     setBoard((old) =>
       old.monitors.some((m) => m.id === id)
@@ -493,9 +523,7 @@ export function App() {
           </div>
         )}
         <section className={`summary ${state}`} aria-label="Board summary">
-          <div className="summary-icon" aria-hidden="true">
-            {symbols[state]}
-          </div>
+          <div className="summary-icon" aria-hidden="true" />
           <div>
             <h2>
               {!items.length
@@ -535,7 +563,7 @@ export function App() {
         </section>
         <div className="board-heading">
           <div>
-            <h2>{board.name}</h2>
+            {board.name && board.name !== "My status board" && <h2>{board.name}</h2>}
             <span className="small muted">
               Public provider reports. Account-specific issues may differ.
             </span>
@@ -627,22 +655,32 @@ export function App() {
                                 : ""}
                             </p>
                           </div>
-                          <Badge
-                            state={snapshot?.state ?? "unknown"}
-                            text={
-                              !snapshot && !failures[monitor.id]
-                                ? "Checking"
-                                : undefined
-                            }
-                          />
+                          <button
+                            className="status-button"
+                            disabled={!snapshot && !failures[apiUrl("status", monitor)]}
+                            aria-label={`${name}: ${!snapshot && !failures[apiUrl("status", monitor)] ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
+                            onClick={() => openReports(monitor, name, snapshot)}
+                          >
+                            <Badge
+                              state={snapshot?.state ?? "unknown"}
+                              text={
+                                !snapshot && !failures[apiUrl("status", monitor)]
+                                  ? "Checking"
+                                  : undefined
+                              }
+                            />
+                          </button>
                         </div>
                         <HistoryBars
                           name={name}
-                          history={histories[monitor.id]}
+                          history={histories[apiUrl("history", monitor)]}
+                          onSelect={(day) =>
+                            openReports(monitor, name, snapshot, day)
+                          }
                         />
-                        {(failures[monitor.id] || snapshot?.stale) && (
+                        {(failures[apiUrl("status", monitor)] || snapshot?.stale) && (
                           <p className="feed-warning">
-                            {failures[monitor.id] ?? snapshot?.warning}{" "}
+                            {failures[apiUrl("status", monitor)] ?? snapshot?.warning}{" "}
                             {snapshot?.fetchedAt &&
                               `Last success: ${when(snapshot.fetchedAt)}.`}
                           </p>
@@ -757,7 +795,7 @@ export function App() {
                           ? "maintenance"
                           : "operational"
                     }
-                    text={i.status.replaceAll("_", " ")}
+                    text={i.status && i.status !== "Checking" ? i.status.replaceAll("_", " ") : undefined}
                   />
                 </button>
               ))}
@@ -858,7 +896,7 @@ export function App() {
       {editing && (
         <EditMonitor
           monitor={editing}
-          snapshot={snapshots[editing.id]}
+          snapshot={snapshots[apiUrl("status", editing)]}
           name={
             items.find((i) => i.monitor.id === editing.id)?.name ?? editing.id
           }
@@ -881,69 +919,97 @@ export function App() {
           }}
         />
       )}
-      {selectedIncident && (
+      {(selectedIncident || reportSelection) && (
         <Dialog
-          title={selectedIncident.title}
-          close={() => setSelectedIncident(null)}
+          title={reportSelection?.title ?? selectedIncident!.title}
+          close={() => {
+            setSelectedIncident(null);
+            setReportSelection(null);
+          }}
           wide
         >
           <div className="dialog-body">
-            <div className="flex">
-              <Badge
-                state={
-                  selectedIncident.active
-                    ? selectedIncident.state
-                    : "operational"
-                }
-                text={selectedIncident.status.replaceAll("_", " ")}
-              />
-              <span>{selectedIncident.providerName}</span>
-            </div>
-            <p className="small muted">
-              Started {when(selectedIncident.startedAt)}
-            </p>
-            <a href={selectedIncident.url} target="_blank" rel="noreferrer">
-              View the provider’s incident ↗
-            </a>
-            <div className="timeline">
-              {selectedIncident.updates.length ? (
-                selectedIncident.updates.map((u, index) => (
-                  <article key={index}>
-                    <time>{when(u.at)}</time>
-                    <strong>{u.status.replaceAll("_", " ")}</strong>
-                    <p>{u.body}</p>
-                  </article>
-                ))
-              ) : (
-                <p>
-                  {selectedIncident.body || "No detailed updates supplied."}
+            {reportSelection && (
+              <>
+                <Badge state={reportSelection.state} />
+                <p className="small muted">
+                  Provider reports for your selected components. History may be
+                  incomplete.
                 </p>
-              )}
-            </div>
+                {reportSelection.reports.length > 0 ? (
+                  <label>
+                    Report
+                    <select
+                      value={selectedIncident?.id}
+                      onChange={(event) =>
+                        setSelectedIncident(
+                          reportSelection.reports.find(
+                            (report) => report.id === event.target.value,
+                          ) ?? null,
+                        )
+                      }
+                    >
+                      {reportSelection.reports.map((report) => (
+                        <option key={report.id} value={report.id}>
+                          {report.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p>
+                    No provider report is available for this selection. Local
+                    checks can record a status change without a published
+                    incident. Missing reports do not establish healthy service.
+                  </p>
+                )}
+              </>
+            )}
+            {selectedIncident && (
+              <>
+                {reportSelection && <h3>{selectedIncident.title}</h3>}
+                <div className="flex">
+                  <Badge
+                    state={
+                      selectedIncident.active
+                        ? selectedIncident.state
+                        : selectedIncident.maintenance
+                          ? "maintenance"
+                          : "operational"
+                    }
+                    text={selectedIncident.status && selectedIncident.status !== "Checking" ? selectedIncident.status.replaceAll("_", " ") : undefined}
+                  />
+                  <span>{selectedIncident.providerName}</span>
+                </div>
+                <p className="small muted">
+                  Started {when(selectedIncident.startedAt)}
+                </p>
+                <a href={selectedIncident.url} target="_blank" rel="noreferrer">
+                  View the provider’s incident ↗
+                </a>
+                <div className="timeline">
+                  {selectedIncident.updates.length ? (
+                    selectedIncident.updates.map((u, index) => (
+                      <article key={index}>
+                        <time>{when(u.at)}</time>
+                        <strong>{u.status.replaceAll("_", " ")}</strong>
+                        <p>{u.body}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <p>
+                      {selectedIncident.body || "No detailed updates supplied."}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </Dialog>
       )}
       {modal === "settings" && (
         <Dialog title="Your board" close={() => setModal(null)}>
           <div className="dialog-body settings">
-            <label>
-              Board name
-              <input
-                value={board.name}
-                maxLength={80}
-                onChange={(e) =>
-                  setBoard((old) => ({
-                    ...old,
-                    name: e.target.value || "My status board",
-                  }))
-                }
-              />
-            </label>
-            <p className="muted small">
-              Saved in this browser. No account, cookies, or shared workspace
-              required.
-            </p>
-            <div className="divider" />
             <h3>Notifications</h3>
             <p className="small">
               Browser alerts need this page to remain open. Use your own
