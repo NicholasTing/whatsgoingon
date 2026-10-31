@@ -466,8 +466,6 @@ h1 {
   border: 0;
   border-radius: 6px;
   background: transparent;
-}
-.status-button:hover {
   text-decoration: underline;
   text-decoration-color: var(--muted);
 }
