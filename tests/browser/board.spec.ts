@@ -1022,3 +1022,20 @@ test("incident lifecycle badges identify impact without colour", async ({ page }
     await page.keyboard.press("Escape");
   }
 });
+
+
+test("non-JSON API errors explain unavailable status data without leaking parser errors", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  for (const response of [
+    { status: 404, contentType: "text/plain", body: "The page could not be found" },
+    { status: 200, contentType: "text/html", body: "<!DOCTYPE html><title>Dashboard</title>" },
+  ]) {
+    await page.route("**/api/status/**", route => route.fulfill(response));
+    await page.goto("/");
+    await expect(page.getByText("The status service is unavailable. Please try again later.")).toBeVisible();
+    await expect(page.getByText("Unexpected token", { exact: false })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Databricks (AWS): Unknown. View reports" })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`api-unavailable-${response.status}.png`), fullPage: true });
+    await page.unroute("**/api/status/**");
+  }
+});
