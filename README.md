@@ -1,6 +1,6 @@
 # PR #10 visual refresh evidence
 
-Application commit: `d2efe26` on `fix/5-dashboard-header`.
+Application commit: `de391b2` on `fix/refresh-dashboard-logos`. PR #10 merged during the work; this is a follow-up against its squashed main commit. The tested tree and final commit tree are identical (`git diff d2efe26 de391b2` is empty).
 
 - `npm run check`: 16 unit tests, TypeScript and production build passed.
 - `npm run test:e2e`: 11 browser tests passed in Chromium.
