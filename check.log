@@ -1,0 +1,46 @@
+
+> whatsgoingon@0.1.0 check
+> npm test && npm run build
+
+
+> whatsgoingon@0.1.0 test
+> node --test tests/*.test.ts
+
+✔ colour contrast follows known ratios and every preset is readable (1.344209ms)
+✔ legacy boards keep their monitors and receive the default appearance (0.6025ms)
+✔ appearance round trips through sharing and rejects unsafe or unreadable imports (0.595958ms)
+✔ Databricks product and region intersections exclude unrelated incidents (2.917334ms)
+✔ Codex uses full components, filters unrelated incidents, and rejects script links (0.861375ms)
+✔ current feed stays useful when optional incident history fails (0.273167ms)
+✔ failed feeds and old observations become unknown without losing the last observation (0.079625ms)
+✔ share/import round trip excludes unexpected keys and disables recipient notifications (1.274625ms)
+✔ outbound URL validation rejects private, mapped, encoded, and non-HTTPS targets (1.264166ms)
+✔ history never invents healthy days and persists across collection failures (1.181125ms)
+✔ stable observations compact into spans but downtime gaps remain separate (0.277958ms)
+✔ change detection establishes a baseline and catches updates and recovery (0.111667ms)
+✔ webhook outbox retries failures and removes delivered events without logging secrets (0.324666ms)
+✔ notification destinations receive their required payload format (0.083166ms)
+✔ daily sample counts stay exact across UTC midnight (0.286042ms)
+✔ a user-configured collector filters scope, enqueues changes and retains its baseline on restart (3.843ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.13575
+
+> whatsgoingon@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 120 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.59 kB │ gzip:   0.36 kB
+dist/assets/index-C4DiA1LB.css   16.89 kB │ gzip:   4.12 kB
+dist/assets/index-7fw8exfa.js   357.71 kB │ gzip: 109.21 kB
+
+✓ built in 76ms

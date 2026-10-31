@@ -1,0 +1,26 @@
+
+> whatsgoingon@0.1.0 test:e2e
+> playwright test
+
+[WebServer] (node:55885) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:56023) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 11 tests using 1 worker
+
+(node:56059) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser/board.spec.ts:58:1 › local logos render throughout the catalogue and themed boards with an accessible custom fallback (1.7s)
+  ✓   2 tests/browser/board.spec.ts:192:1 › Databricks component scope saves, reloads, and shares without affecting another browser (392ms)
+  ✓   3 tests/browser/board.spec.ts:239:1 › users can add Claude and Codex, search the board, and navigate daily bars by keyboard (248ms)
+  ✓   4 tests/browser/board.spec.ts:263:1 › webhook credentials only enter the user download, never requests, browser storage, or shared state (186ms)
+  ✓   5 tests/browser/board.spec.ts:291:1 › overview and component selection pass automated accessibility checks and fit mobile (535ms)
+  ✓   6 tests/browser/board.spec.ts:324:1 › API blocks private targets, unknown providers and mutations without needing sign-in (19ms)
+  ✓   7 tests/browser/board.spec.ts:338:1 › appearance validates colours, persists, exports, imports, and shares (575ms)
+  ✓   8 tests/browser/board.spec.ts:392:1 › appearance and feedback are accessible in both themes and on mobile (1.2s)
+  ✓   9 tests/browser/board.spec.ts:455:1 › setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials (220ms)
+  ✓  10 tests/browser/board.spec.ts:516:1 › setup prompt has a manual-copy fallback and fits an accessible mobile dialog (420ms)
+  ✓  11 tests/browser/board.spec.ts:569:1 › compact navigation keeps setup and feedback accessible on desktop and mobile (199ms)
+
+  11 passed (8.0s)
