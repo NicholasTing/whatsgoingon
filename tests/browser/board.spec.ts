@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
+import type { Incident } from "../../shared/types.ts";
 import type { Page } from "@playwright/test";
 import { defaultBoard } from "../../shared/board.ts";
 import { presets } from "../../shared/appearance.ts";
 
-async function mockFeeds(page: Page) {
+async function mockFeeds(page: Page, incidents: Incident[] = []) {
   await page.route("**/api/status/**", (route) => {
     const url = new URL(route.request().url());
     const id = url.pathname.split("/").at(-1)!;
@@ -31,7 +32,7 @@ async function mockFeeds(page: Page) {
         components: selected.length
           ? components.filter((c) => selected.includes(c.id))
           : components,
-        incidents: [],
+        incidents,
       },
     });
   });
@@ -474,4 +475,21 @@ test("compact navigation keeps setup and feedback accessible on desktop and mobi
   await expect(setup).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Request a feature" })).toBeFocused();
+});
+
+
+test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
+  const reports: Incident[] = (["outage", "degraded"] as const).map(state => ({
+    id: state, title: `${state} incident`, status: "investigating", state,
+    active: true, maintenance: false, startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), endedAt: null, componentIds: [],
+    body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
+  }));
+  await mockFeeds(page, reports);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Incidents (2)", exact: true }).click();
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Degraded · investigating"]);
+  await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
+  await page.getByRole("button", { name: /outage incident/ }).click();
+  await expect(page.getByRole("dialog").locator(".badge")).toHaveText("Outage · investigating");
 });

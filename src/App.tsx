@@ -89,7 +89,9 @@ function when(value: string | null): string {
 function Badge({ state, text }: { state: Health; text?: string }) {
   return (
     <span className={`badge ${state}`}>
-      {text ?? labels[state]}
+      {text && text !== "Checking"
+        ? `${labels[state]} · ${text}`
+        : text ?? labels[state]}
     </span>
   );
 }
