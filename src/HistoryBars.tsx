@@ -130,10 +130,10 @@ export function HistoryBars({
           {!history
             ? "Recorded history is unavailable"
             : active
-            ? description
-            : history?.days.some((d) => d.samples || d.reports)
-              ? "Local checks and provider reports · coverage may be incomplete"
-              : "No local checks or provider reports recorded yet"}
+              ? description
+              : history.days.some((d) => d.samples || d.reports)
+                ? "Local checks and provider reports · coverage may be incomplete"
+                : "No local checks or provider reports recorded yet"}
         </span>
         <span>Today</span>
       </div>
