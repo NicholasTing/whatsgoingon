@@ -88,6 +88,13 @@ function when(value: string | null): string {
       })
     : "Time not supplied";
 }
+function incidentHealth(incident: Incident): Health {
+  return incident.active
+    ? incident.state
+    : incident.status === "scheduled"
+      ? "maintenance"
+      : "operational";
+}
 function incidentStatusText(status: string): string | undefined {
   return status && status !== "Checking"
     ? status.replaceAll("_", " ")
@@ -796,13 +803,7 @@ export function App() {
                   <h3>{i.title}</h3>
                   <p>{i.body || "No description supplied by the provider."}</p>
                   <Badge
-                    state={
-                      i.active
-                        ? i.state
-                        : i.status === "scheduled"
-                          ? "maintenance"
-                          : "operational"
-                    }
+                    state={incidentHealth(i)}
                     text={incidentStatusText(i.status)}
                   />
                 </button>
@@ -978,13 +979,7 @@ export function App() {
                 {reportSelection && <h3>{selectedIncident.title}</h3>}
                 <div className="flex">
                   <Badge
-                    state={
-                      selectedIncident.active
-                        ? selectedIncident.state
-                        : selectedIncident.status === "scheduled"
-                          ? "maintenance"
-                          : "operational"
-                    }
+                    state={incidentHealth(selectedIncident)}
                     text={incidentStatusText(selectedIncident.status)}
                   />
                   <span>{selectedIncident.providerName}</span>
