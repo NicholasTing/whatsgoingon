@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type {
   Board,
   Change,
+  DailyStatus,
   Health,
   History,
   Incident,
@@ -15,6 +16,7 @@ import {
   boardFromHash,
   changesBetween,
   defaultBoard,
+  incidentsForDay,
   readBoard,
   scoped,
   shareBoard,
@@ -178,6 +180,11 @@ export function App() {
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
     null,
   );
+  const [reportSelection, setReportSelection] = useState<{
+    title: string;
+    reports: IncidentRow[];
+    state: Health;
+  } | null>(null);
   const previous = useRef<Record<string, Snapshot>>({});
   const notificationPrefs = useRef(board);
   notificationPrefs.current = board;
@@ -370,6 +377,28 @@ export function App() {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  function openReports(
+    monitor: Monitor,
+    name: string,
+    snapshot?: Snapshot,
+    day?: DailyStatus,
+  ) {
+    const reports = (
+      day
+        ? incidentsForDay(snapshot?.incidents ?? [], monitor, day.date)
+        : (snapshot?.incidents.filter((incident) => incident.active) ?? [])
+    ).map((incident) => ({
+      ...incident,
+      providerId: monitor.id,
+      providerName: name,
+    }));
+    setReportSelection({
+      title: `${name} · ${day ? `${day.date} (UTC)` : "Current status"}`,
+      reports,
+      state: day?.state ?? snapshot?.state ?? "unknown",
+    });
+    setSelectedIncident(reports[0] ?? null);
+  }
   function add(id: string) {
     setBoard((old) =>
       old.monitors.some((m) => m.id === id)
@@ -639,18 +668,27 @@ export function App() {
                                 : ""}
                             </p>
                           </div>
-                          <Badge
-                            state={snapshot?.state ?? "unknown"}
-                            text={
-                              !snapshot && !failures[monitor.id]
-                                ? "Checking"
-                                : undefined
-                            }
-                          />
+                          <button
+                            className="status-button"
+                            aria-label={`${name}: ${labels[snapshot?.state ?? "unknown"]}. View reports`}
+                            onClick={() => openReports(monitor, name, snapshot)}
+                          >
+                            <Badge
+                              state={snapshot?.state ?? "unknown"}
+                              text={
+                                !snapshot && !failures[monitor.id]
+                                  ? "Checking"
+                                  : undefined
+                              }
+                            />
+                          </button>
                         </div>
                         <HistoryBars
                           name={name}
                           history={histories[monitor.id]}
+                          onSelect={(day) =>
+                            openReports(monitor, name, snapshot, day)
+                          }
                         />
                         {(failures[monitor.id] || snapshot?.stale) && (
                           <p className="feed-warning">
@@ -933,45 +971,91 @@ export function App() {
           }}
         />
       )}
-      {selectedIncident && (
+      {(selectedIncident || reportSelection) && (
         <Dialog
-          title={selectedIncident.title}
-          close={() => setSelectedIncident(null)}
+          title={reportSelection?.title ?? selectedIncident!.title}
+          close={() => {
+            setSelectedIncident(null);
+            setReportSelection(null);
+          }}
           wide
         >
           <div className="dialog-body">
-            <div className="flex">
-              <Badge
-                state={
-                  selectedIncident.active
-                    ? selectedIncident.state
-                    : "operational"
-                }
-                text={selectedIncident.status.replaceAll("_", " ")}
-              />
-              <span>{selectedIncident.providerName}</span>
-            </div>
-            <p className="small muted">
-              Started {when(selectedIncident.startedAt)}
-            </p>
-            <a href={selectedIncident.url} target="_blank" rel="noreferrer">
-              View the provider’s incident ↗
-            </a>
-            <div className="timeline">
-              {selectedIncident.updates.length ? (
-                selectedIncident.updates.map((u, index) => (
-                  <article key={index}>
-                    <time>{when(u.at)}</time>
-                    <strong>{u.status.replaceAll("_", " ")}</strong>
-                    <p>{u.body}</p>
-                  </article>
-                ))
-              ) : (
-                <p>
-                  {selectedIncident.body || "No detailed updates supplied."}
+            {reportSelection && (
+              <>
+                <Badge state={reportSelection.state} />
+                <p className="small muted">
+                  Provider reports for your selected components. History may be
+                  incomplete.
                 </p>
-              )}
-            </div>
+                {reportSelection.reports.length > 0 ? (
+                  <label>
+                    Report
+                    <select
+                      value={selectedIncident?.id}
+                      onChange={(event) =>
+                        setSelectedIncident(
+                          reportSelection.reports.find(
+                            (report) => report.id === event.target.value,
+                          ) ?? null,
+                        )
+                      }
+                    >
+                      {reportSelection.reports.map((report) => (
+                        <option key={report.id} value={report.id}>
+                          {report.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p>
+                    No provider report is available for this selection. Local
+                    checks can record a status change without a published
+                    incident. Missing reports do not establish healthy service.
+                  </p>
+                )}
+              </>
+            )}
+            {selectedIncident && (
+              <>
+                {reportSelection && <h3>{selectedIncident.title}</h3>}
+                <div className="flex">
+                  <Badge
+                    state={
+                      selectedIncident.active
+                        ? selectedIncident.state
+                        : selectedIncident.maintenance
+                          ? "maintenance"
+                          : "operational"
+                    }
+                    text={selectedIncident.status.replaceAll("_", " ")}
+                  />
+                  <span>{selectedIncident.providerName}</span>
+                </div>
+                <p className="small muted">
+                  Started {when(selectedIncident.startedAt)}
+                </p>
+                <a href={selectedIncident.url} target="_blank" rel="noreferrer">
+                  View the provider’s incident ↗
+                </a>
+                <div className="timeline">
+                  {selectedIncident.updates.length ? (
+                    selectedIncident.updates.map((u, index) => (
+                      <article key={index}>
+                        <time>{when(u.at)}</time>
+                        <strong>{u.status.replaceAll("_", " ")}</strong>
+                        <p>{u.body}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <p>
+                      {selectedIncident.body || "No detailed updates supplied."}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </Dialog>
       )}

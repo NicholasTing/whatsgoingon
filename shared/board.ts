@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { appearanceSchema, defaultAppearance } from "./appearance.ts";
-import type { Board, Monitor, Snapshot, Health, Change } from "./types.ts";
+import type {
+  Board,
+  Monitor,
+  Snapshot,
+  Health,
+  Change,
+  Incident,
+} from "./types.ts";
 
 const httpsUrl = z
   .string()
@@ -159,4 +166,30 @@ export function changesBetween(
     }
   }
   return changes;
+}
+
+export function incidentsForDay(
+  incidents: Incident[],
+  monitor: Monitor,
+  date: string,
+  now = Date.now(),
+): Incident[] {
+  const start = Date.parse(date);
+  const end = Math.min(start + 86_400_000, now);
+  return incidents.filter((incident) => {
+    if (!incident.startedAt || incident.status === "scheduled") return false;
+    const began = Date.parse(incident.startedAt);
+    const ended = incident.active
+      ? now
+      : Date.parse(incident.endedAt ?? incident.startedAt);
+    return (
+      (!monitor.componentIds.length ||
+        !incident.componentIds.length ||
+        incident.componentIds.some((id) =>
+          monitor.componentIds.includes(id),
+        )) &&
+      began < end &&
+      (ended > start || began >= start)
+    );
+  });
 }
