@@ -2,24 +2,25 @@
 > whatsgoingon@0.1.0 test:e2e
 > playwright test --config /tmp/whatsgoingon-pr-evidence/playwright.config.ts
 
-[WebServer] (node:58602) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:74696) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer] (node:58648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:74730) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
 
-Running 10 tests using 1 worker
+Running 11 tests using 1 worker
 
-(node:58686) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(node:74856) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
-  ✓   1 tests/browser/board.spec.ts:58:1 › Databricks component scope saves, reloads, and shares without affecting another browser (657ms)
-  ✓   2 tests/browser/board.spec.ts:105:1 › users can add Claude and Codex, search the board, and navigate daily bars by keyboard (259ms)
-  ✓   3 tests/browser/board.spec.ts:129:1 › webhook credentials only enter the user download, never requests, browser storage, or shared state (224ms)
-  ✓   4 tests/browser/board.spec.ts:157:1 › overview and component selection pass automated accessibility checks and fit mobile (575ms)
-  ✓   5 tests/browser/board.spec.ts:190:1 › API blocks private targets, unknown providers and mutations without needing sign-in (19ms)
-  ✓   6 tests/browser/board.spec.ts:204:1 › appearance validates colours, persists, exports, imports, and shares (621ms)
-  ✓   7 tests/browser/board.spec.ts:258:1 › appearance and feedback are accessible in both themes and on mobile (1.2s)
-  ✓   8 tests/browser/board.spec.ts:321:1 › setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials (249ms)
-  ✓   9 tests/browser/board.spec.ts:382:1 › setup prompt has a manual-copy fallback and fits an accessible mobile dialog (404ms)
-  ✓  10 tests/browser/board.spec.ts:435:1 › history explains missing local checks separately from provider reports on hover and focus (386ms)
+  ✓   1 tests/browser/board.spec.ts:58:1 › Databricks component scope saves, reloads, and shares without affecting another browser (746ms)
+  ✓   2 tests/browser/board.spec.ts:105:1 › users can add Claude and Codex, search the board, and navigate daily bars by keyboard (258ms)
+  ✓   3 tests/browser/board.spec.ts:129:1 › webhook credentials only enter the user download, never requests, browser storage, or shared state (216ms)
+  ✓   4 tests/browser/board.spec.ts:157:1 › overview and component selection pass automated accessibility checks and fit mobile (584ms)
+  ✓   5 tests/browser/board.spec.ts:190:1 › API blocks private targets, unknown providers and mutations without needing sign-in (20ms)
+  ✓   6 tests/browser/board.spec.ts:204:1 › appearance validates colours, persists, exports, imports, and shares (664ms)
+  ✓   7 tests/browser/board.spec.ts:258:1 › appearance and feedback are accessible in both themes and on mobile (1.3s)
+  ✓   8 tests/browser/board.spec.ts:321:1 › setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials (288ms)
+  ✓   9 tests/browser/board.spec.ts:382:1 › setup prompt has a manual-copy fallback and fits an accessible mobile dialog (480ms)
+  ✓  10 tests/browser/board.spec.ts:435:1 › history explains missing local checks separately from provider reports on hover and focus (375ms)
+  ✓  11 tests/browser/board.spec.ts:511:1 › compact navigation keeps setup and feedback accessible on desktop and mobile (269ms)
 
-  10 passed (7.0s)
+  11 passed (7.8s)

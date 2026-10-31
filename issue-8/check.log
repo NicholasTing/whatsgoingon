@@ -6,23 +6,23 @@
 > whatsgoingon@0.1.0 test
 > node --test tests/*.test.ts
 
-✔ colour contrast follows known ratios and every preset is readable (1.403125ms)
-✔ legacy boards keep their monitors and receive the default appearance (0.614ms)
-✔ appearance round trips through sharing and rejects unsafe or unreadable imports (0.594292ms)
-✔ Databricks product and region intersections exclude unrelated incidents (2.972125ms)
-✔ Codex uses full components, filters unrelated incidents, and rejects script links (0.860792ms)
-✔ current feed stays useful when optional incident history fails (0.269666ms)
-✔ failed feeds and old observations become unknown without losing the last observation (0.07275ms)
-✔ share/import round trip excludes unexpected keys and disables recipient notifications (1.272375ms)
-✔ outbound URL validation rejects private, mapped, encoded, and non-HTTPS targets (1.565417ms)
-✔ history never invents healthy days and persists across collection failures (0.933541ms)
-✔ stable observations compact into spans but downtime gaps remain separate (0.23225ms)
-✔ change detection establishes a baseline and catches updates and recovery (0.11025ms)
-✔ webhook outbox retries failures and removes delivered events without logging secrets (0.299875ms)
-✔ notification destinations receive their required payload format (0.082208ms)
-✔ daily sample counts stay exact across UTC midnight (0.32575ms)
-✔ a user-configured collector filters scope, enqueues changes and retains its baseline on restart (3.83125ms)
-✔ daily reports share the history component scope and UTC boundaries (0.496875ms)
+✔ colour contrast follows known ratios and every preset is readable (1.362375ms)
+✔ legacy boards keep their monitors and receive the default appearance (0.609291ms)
+✔ appearance round trips through sharing and rejects unsafe or unreadable imports (0.676125ms)
+✔ Databricks product and region intersections exclude unrelated incidents (2.872209ms)
+✔ Codex uses full components, filters unrelated incidents, and rejects script links (0.801458ms)
+✔ current feed stays useful when optional incident history fails (0.254459ms)
+✔ failed feeds and old observations become unknown without losing the last observation (0.072541ms)
+✔ share/import round trip excludes unexpected keys and disables recipient notifications (1.260791ms)
+✔ outbound URL validation rejects private, mapped, encoded, and non-HTTPS targets (1.461709ms)
+✔ history never invents healthy days and persists across collection failures (0.873625ms)
+✔ stable observations compact into spans but downtime gaps remain separate (0.212459ms)
+✔ change detection establishes a baseline and catches updates and recovery (0.1075ms)
+✔ webhook outbox retries failures and removes delivered events without logging secrets (0.302542ms)
+✔ notification destinations receive their required payload format (0.078708ms)
+✔ daily sample counts stay exact across UTC midnight (0.313791ms)
+✔ a user-configured collector filters scope, enqueues changes and retains its baseline on restart (3.942959ms)
+✔ daily reports share the history component scope and UTC boundaries (0.531416ms)
 ℹ tests 17
 ℹ suites 0
 ℹ pass 17
@@ -30,7 +30,7 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 128.051209
+ℹ duration_ms 121.094667
 
 > whatsgoingon@0.1.0 build
 > tsc --noEmit && vite build
@@ -41,7 +41,7 @@ transforming...
 rendering chunks...
 computing gzip size...
 dist/index.html                   0.59 kB │ gzip:   0.36 kB
-dist/assets/index-fITyZ32N.css   17.67 kB │ gzip:   4.22 kB
-dist/assets/index-B1X8hEsU.js   356.27 kB │ gzip: 108.90 kB
+dist/assets/index-BtQdwg1W.css   16.77 kB │ gzip:   4.06 kB
+dist/assets/index-Dt_5zw3p.js   354.95 kB │ gzip: 108.57 kB
 
-✓ built in 74ms
+✓ built in 72ms

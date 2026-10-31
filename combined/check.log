@@ -1,0 +1,50 @@
+
+> whatsgoingon@0.1.0 check
+> npm test && npm run build
+
+
+> whatsgoingon@0.1.0 test
+> node --test tests/*.test.ts
+
+✔ colour contrast follows known ratios and every preset is readable (1.418334ms)
+✔ legacy boards keep their monitors and receive the default appearance (0.591042ms)
+✔ appearance round trips through sharing and rejects unsafe or unreadable imports (0.565ms)
+✔ fresh and legacy boards default to dark while explicit appearances survive (0.29175ms)
+✔ Databricks product and region intersections exclude unrelated incidents (2.842167ms)
+✔ Codex uses full components, filters unrelated incidents, and rejects script links (0.864ms)
+✔ current feed stays useful when optional incident history fails (0.246667ms)
+✔ failed feeds and old observations become unknown without losing the last observation (0.0755ms)
+✔ share/import round trip excludes unexpected keys and disables recipient notifications (1.252667ms)
+✔ outbound URL validation rejects private, mapped, encoded, and non-HTTPS targets (1.546209ms)
+✔ history never invents healthy days and persists across collection failures (0.947291ms)
+✔ stable observations compact into spans but downtime gaps remain separate (0.218792ms)
+✔ change detection establishes a baseline and catches updates and recovery (0.114125ms)
+✔ webhook outbox retries failures and removes delivered events without logging secrets (0.299917ms)
+✔ notification destinations receive their required payload format (0.089625ms)
+✔ daily sample counts stay exact across UTC midnight (0.329958ms)
+✔ a user-configured collector filters scope, enqueues changes and retains its baseline on restart (3.859459ms)
+✔ daily reports share the history component scope and UTC boundaries (0.515959ms)
+✔ unnamed boards load and share while existing names remain intact (0.470209ms)
+✔ empty history and incident-only history distinguish local checks from reports (0.683625ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 120.1465
+
+> whatsgoingon@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 118 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.59 kB │ gzip:   0.36 kB
+dist/assets/index-OliDyQ69.css   16.52 kB │ gzip:   4.02 kB
+dist/assets/index-BklauKei.js   354.87 kB │ gzip: 108.63 kB
+
+✓ built in 68ms

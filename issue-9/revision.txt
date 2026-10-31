@@ -1,0 +1,6 @@
+Source commit: 5e9a428ca70aa887e40850d302042df82f806554
+Base main: e189bd1
+Unit/build: npm run check
+Browser: npm run test:e2e -- --config /tmp/whatsgoingon-pr-evidence/playwright.config.ts
+Local browser port: 4196 (4175 was occupied by another session).
+Provider responses are deterministic fixtures.
