@@ -66,7 +66,11 @@ function apiUrl(kind: string, monitor: Monitor): string {
 }
 async function get<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
-  const data = await response.json();
+  const data = await response.json().catch((error: unknown) => {
+    if (error instanceof SyntaxError)
+      throw new Error("The status service is unavailable. Please try again later.");
+    throw error;
+  });
   if (!response.ok) throw new Error(data.error ?? "Request failed.");
   return data;
 }
