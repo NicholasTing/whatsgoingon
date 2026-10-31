@@ -6,11 +6,11 @@ Run one continuously available app instance with a persistent disk, and keep bac
 
 | Data | Location | How to keep it |
 | --- | --- | --- |
-| Selected services, component selections, and groups | `services.json` (or `SERVICES_CONFIG`) | Keep the file with your deployment configuration. Restart the server after editing it. |
+| Selected services, component selections, and groups | `services.json` (or build-time `SERVICES_CONFIG`), compiled to `dist/board.json` | Keep the source file with your deployment configuration. Rebuild and redeploy after editing it. |
 | Provider snapshots, incident reports, observation history, alert baselines, and queued deliveries | `status.sqlite` inside `DATA_DIR` | Retain the data volume and back it up. |
 | Background alert configuration | Your `WATCH_CONFIG` file | Keep a private copy outside the release directory, or mount it from your own secret store. Back it up separately. |
 
-Every visitor uses the server's startup configuration. Old browser boards and shared configuration links are ignored, and their local storage is left intact. The browser's **Activity** list is held in memory and clears on reload; retained provider incident reports are separate.
+Every visitor uses the service selection saved during the build. A production restart reads the same snapshot; it does not reload the source service array. Old browser boards and shared configuration links are ignored, and their local storage is left intact. The browser's **Activity** list is held in memory and clears on reload; retained provider incident reports are separate.
 
 Configured monitors register at startup and continue collecting without an open browser. The static provider dictionary is in `server/catalog.ts`. History has rolling retention, so the database is not an indefinite archive.
 
@@ -95,6 +95,6 @@ Treat the database and its backups as private: queued webhook destinations and p
 
 4. Review pending alert deliveries before starting. A restored backup can replay old notifications, and queued deliveries can be sent even when `WATCH_CONFIG` is unset. Keep outbound network access disabled during an isolated recovery rehearsal; omitting the config alone does not prevent delivery.
 5. Point `DATA_DIR` or the container's `/data` mount at the restored directory or volume. Start the app when you are ready to resume collection and delivery. Check `/api/health` and confirm that expected historical dates and incidents appear on the board.
-6. Restore your services.json file and private watch configuration separately, then restart the server and reload the page. All configured monitors register at startup.
+6. Restore your services.json file and private watch configuration separately. If the service selection changed, rebuild and redeploy the app (for Compose, use `up --build -d` with the same project name and volume), then reload the page. Restart the server after restoring the watch configuration. All configured monitors register at startup.
 
 Rehearse recovery on a separate directory or volume before relying on backups. An integrity check confirms database structure, not that the backup contains all the history you expected. Observations collected after the backup are lost unless you have a newer recoverable copy; gaps while the app was stopped cannot be reconstructed by restoring an older database.

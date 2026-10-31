@@ -1,1 +1,19 @@
-[{ "id": "databricks" }]
+[
+  { "id": "databricks", "enabled": true },
+  { "id": "claude", "enabled": true },
+  { "id": "codex", "enabled": true },
+  { "id": "openai", "enabled": false },
+  { "id": "github", "enabled": false },
+  { "id": "cloudflare", "enabled": false },
+  { "id": "tailscale", "enabled": false },
+  { "id": "modal", "enabled": false },
+  { "id": "circleci", "enabled": false },
+  { "id": "vercel", "enabled": false },
+  { "id": "supabase", "enabled": false },
+  { "id": "npm", "enabled": false },
+  { "id": "pypi", "enabled": false },
+  { "id": "docker", "enabled": false },
+  { "id": "linear", "enabled": false },
+  { "id": "notion", "enabled": false },
+  { "id": "discord", "enabled": false }
+]

@@ -442,7 +442,7 @@ function Dashboard({ board, catalog }: { board: Board; catalog: Catalogue[] }) {
             </h2>
             <p>
               {!items.length
-                ? "Add services to services.json on the server, then restart it."
+                ? "Enable services in services.json, then rebuild and redeploy the app."
                 : `${items.length} ${items.length === 1 ? "service" : "services"} tracked · ${activeIncidents} active incidents${unknown ? ` · ${unknown} unknown` : ""}`}
             </p>
           </div>
@@ -651,7 +651,7 @@ function Dashboard({ board, catalog }: { board: Board; catalog: Catalogue[] }) {
                   <p>
                     {items.length
                       ? "Try another search or turn off the attention filter."
-                      : "Edit services.json on the server and restart it to update this list."}
+                      : "Enable services in services.json, then rebuild and redeploy the app."}
                   </p>
                   <button
                     className="secondary"
@@ -799,20 +799,28 @@ function Dashboard({ board, catalog }: { board: Board; catalog: Catalogue[] }) {
         <Dialog title="Configured services" close={() => setModal(null)} wide>
           <div className="dialog-body settings">
             <p>
-              This dashboard is read-only. Everyone sees the services configured
-              by its owner.
+              This dashboard is read-only. Its owner chooses services during a
+              one-time setup, and everyone sees the same board.
             </p>
             <p>
-              To add or remove a service, edit the <code>services.json</code>{" "}
-              array on the server and restart it. Reload this page after the
-              restart.
+              To change services later, set <code>enabled</code> to{" "}
+              <code>true</code> or <code>false</code> in <code>services.json</code>,
+              then rebuild and redeploy the app. Reload this page after
+              deployment; refreshing or restarting alone does not apply service
+              changes.
             </p>
             <p>
               Service IDs map to status pages in <code>server/catalog.ts</code>.
               Select a service name on the board to open its status page.
             </p>
             <pre>
-              <code>{JSON.stringify(board.monitors, null, 2)}</code>
+              <code>
+                {JSON.stringify(
+                  board.monitors.map((monitor) => ({ ...monitor, enabled: true })),
+                  null,
+                  2,
+                )}
+              </code>
             </pre>
             <p className="small muted">
               Live editing would require a database and an authenticated editing
@@ -957,7 +965,8 @@ function Integrations({ board, close }: { board: Board; close: () => void }) {
         </label>
         <p>
           Links and embeds show the updated service list after the owner changes
-          the configuration, restarts the server, and viewers reload the page.
+          the configuration, rebuilds and redeploys the app, and viewers reload
+          the page.
         </p>
         <h3>Background alerts</h3>
         <p>

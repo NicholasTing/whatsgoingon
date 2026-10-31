@@ -5,7 +5,6 @@ services:
       - "127.0.0.1:4173:4173"
     volumes:
       - status-data:/data
-      - ./services.json:/app/services.json:ro
     restart: unless-stopped
 volumes:
   status-data:
