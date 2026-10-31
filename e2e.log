@@ -1,0 +1,33 @@
+
+> whatsgoingon@0.1.0 test:e2e
+> playwright test --config playwright.issue-18.config.ts
+
+[WebServer] (node:85120) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:85156) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 18 tests using 1 worker
+
+(node:85171) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/browser/board.spec.ts:79:1 › configured logos and status links remain accessible on desktop and mobile (2.1s)
+  ✓   2 tests/browser/board.spec.ts:162:1 › saved boards and old share links cannot change configured services or scope (230ms)
+  ✓   3 tests/browser/board.spec.ts:229:1 › configuration instructions require a server restart and are keyboard accessible (504ms)
+  ✓   4 tests/browser/board.spec.ts:264:1 › empty and unavailable server configuration never falls back to a browser board (135ms)
+  ✓   5 tests/browser/board.spec.ts:284:1 › configured services can still be searched and API links contain no client configuration (303ms)
+  ✓   6 tests/browser/board.spec.ts:324:1 › setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials (399ms)
+  ✓   7 tests/browser/board.spec.ts:387:1 › setup prompt has a manual-copy fallback and fits an accessible mobile dialog (473ms)
+  ✓   8 tests/browser/board.spec.ts:459:1 › incident filter supports pointer, keyboard, themes and narrow screens (4.5s)
+  ✓   9 tests/browser/board.spec.ts:567:3 › incident filter on touch screens › selects a filter and dismisses it when reselecting the same option (366ms)
+  ✓  10 tests/browser/board.spec.ts:584:1 › history opens scoped UTC reports by pointer and keyboard, with an honest empty state (872ms)
+  ✓  11 tests/browser/board.spec.ts:682:1 › current status and inline maintenance open reports; local-only outages explain missing reports (334ms)
+  ✓  12 tests/browser/board.spec.ts:722:1 › unavailable history is distinct from a returned history with no records (198ms)
+  ✓  13 tests/browser/board.spec.ts:746:1 › history explains missing local checks separately from provider reports on hover and focus (351ms)
+  ✓  14 tests/browser/board.spec.ts:834:1 › compact navigation keeps setup and feedback accessible on desktop and mobile (233ms)
+  ✓  15 tests/browser/board.spec.ts:873:1 › a failed refresh keeps recorded reports but marks the service unknown (249ms)
+  ✓  16 tests/browser/board.spec.ts:896:1 › status reports wait for a snapshot and keep Checking as their accessible name (224ms)
+  ✓  17 tests/browser/board.spec.ts:933:1 › incident lifecycle badges identify impact without colour (413ms)
+  ✓  18 tests/browser/board.spec.ts:1009:1 › non-JSON API errors explain unavailable status data without leaking parser errors (235ms)
+
+  18 passed (13.8s)
