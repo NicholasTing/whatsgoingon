@@ -1,15 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { loadBoard } from "../server/config.ts";
 import { Collector } from "../server/collector.ts";
 import { Store } from "../server/store.ts";
 
-test("service arrays validate IDs, duplicates, scopes and custom URLs at startup", () => {
+test("service arrays filter enabled services and validate even disabled entries", () => {
   const directory = mkdtempSync(join(tmpdir(), "whatsgoingon-config-"));
   const file = join(directory, "services.json");
   const load = (value: unknown) => {
@@ -22,6 +22,14 @@ test("service arrays validate IDs, duplicates, scopes and custom URLs at startup
     ]);
     assert.deepEqual(load([]).monitors, []);
     assert.deepEqual(
+      load([
+        { id: "claude", enabled: true },
+        { id: "codex", enabled: false },
+      ]).monitors.map((monitor) => monitor.id),
+      ["claude"],
+    );
+    assert.deepEqual(load([{ id: "claude", enabled: false }]).monitors, []);
+    assert.deepEqual(
       load([{ id: "databricks", componentIds: ["sql:au"], group: "Data" }])
         .monitors[0].componentIds,
       ["sql:au"],
@@ -29,11 +37,20 @@ test("service arrays validate IDs, duplicates, scopes and custom URLs at startup
     for (const value of [
       {},
       [{ id: "unknown" }],
+      [{ id: "unknown", enabled: false }],
+      [{ id: "claude", enabled: "false" }],
+      [{ id: "claude", enable: false }],
       [{ id: "claude" }, { id: "claude" }],
+      [
+        { id: "claude", enabled: false },
+        { id: "claude", enabled: true },
+      ],
       [{ id: "claude", componentIds: "bad" }],
+      [{ id: "claude", componentIds: "bad", enabled: false }],
       [
         {
           id: "custom",
+          enabled: false,
           custom: { name: "Unsafe", kind: "http", url: "https://127.0.0.1" },
         },
       ],
@@ -98,14 +115,17 @@ test("collection polls only registered services, including custom monitors witho
 });
 
 test(
-  "HTTP configuration is fixed until restart and cannot register or rescope monitors",
+  "production uses the build snapshot across restarts and enforces read-only scopes",
   { timeout: 20_000 },
   async () => {
     const directory = mkdtempSync(join(tmpdir(), "whatsgoingon-api-"));
     const file = join(directory, "services.json");
     writeFileSync(
       file,
-      JSON.stringify([{ id: "databricks", componentIds: ["sql:au"] }]),
+      JSON.stringify([
+        { id: "databricks", enabled: true, componentIds: ["sql:au"] },
+        { id: "claude", enabled: false },
+      ]),
     );
     const store = new Store(join(directory, "status.sqlite"));
     const at = new Date().toISOString();
@@ -142,18 +162,29 @@ test(
       });
     store.close();
     let child: ReturnType<typeof spawn> | undefined;
-    async function start() {
-      child = spawn(process.execPath, ["server/index.ts", "--production"], {
-        env: {
-          ...process.env,
-          HOST: "127.0.0.1",
-          PORT: "0",
-          DATA_DIR: directory,
-          SERVICES_CONFIG: file,
-          WATCH_CONFIG: "",
-        },
-        stdio: ["ignore", "pipe", "pipe"],
+    function build() {
+      execFileSync(process.execPath, [resolve("server/build-config.ts")], {
+        cwd: directory,
+        env: { ...process.env, SERVICES_CONFIG: file },
       });
+    }
+    async function start() {
+      child = spawn(
+        process.execPath,
+        [resolve("server/index.ts"), "--production"],
+        {
+          cwd: directory,
+          env: {
+            ...process.env,
+            HOST: "127.0.0.1",
+            PORT: "0",
+            DATA_DIR: directory,
+            SERVICES_CONFIG: file,
+            WATCH_CONFIG: "",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
       const running = child;
       let output = "";
       return new Promise<string>((resolve, reject) => {
@@ -189,6 +220,8 @@ test(
       clearTimeout(timer);
     }
     try {
+      build();
+      rmSync(file);
       let base = await start();
       assert.equal(
         (await (await fetch(`${base}/api/board`)).json()).monitors[0].id,
@@ -246,12 +279,25 @@ test(
           405,
         );
       }
-      writeFileSync(file, JSON.stringify([{ id: "claude" }]));
+      writeFileSync(
+        file,
+        JSON.stringify([
+          { id: "databricks", enabled: false },
+          { id: "claude", enabled: true },
+        ]),
+      );
       assert.equal(
         (await (await fetch(`${base}/api/board`)).json()).monitors[0].id,
         "databricks",
       );
       await stop();
+      base = await start();
+      assert.equal(
+        (await (await fetch(`${base}/api/board`)).json()).monitors[0].id,
+        "databricks",
+      );
+      await stop();
+      build();
       base = await start();
       assert.equal(
         (await (await fetch(`${base}/api/board`)).json()).monitors[0].id,

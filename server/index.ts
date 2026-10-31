@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
 import { z } from "zod";
@@ -6,13 +7,15 @@ import { loadBoard } from "./config.ts";
 import { Collector } from "./collector.ts";
 import { Store } from "./store.ts";
 import { Alerts } from "./alerts.ts";
-import { scoped } from "../shared/board.ts";
+import { readBoard, scoped } from "../shared/board.ts";
 import { labels } from "../shared/types.ts";
 
 const production = process.argv.includes("--production");
 const port = Number(process.env.PORT ?? 4173);
 const host = process.env.HOST ?? "127.0.0.1";
-const board = loadBoard(process.env.SERVICES_CONFIG ?? "services.json");
+const board = production
+  ? readBoard(JSON.parse(readFileSync("dist/board.json", "utf8")))
+  : loadBoard(process.env.SERVICES_CONFIG ?? "services.json");
 const store = new Store(
   resolve(process.env.DATA_DIR ?? ".data", "status.sqlite"),
 );
@@ -69,7 +72,7 @@ const server = createServer(async (req, res) => {
       return json(
         {
           error:
-            "This API is read-only. Edit services.json on the server and restart it to change services.",
+            "This API is read-only. Edit services.json, rebuild and redeploy the app to change services.",
         },
         405,
       );
@@ -97,7 +100,7 @@ const server = createServer(async (req, res) => {
         return json(
           {
             error:
-              "Service configuration is read-only. Edit services.json on the server and restart it.",
+              "Service configuration is read-only. Edit services.json, rebuild and redeploy the app.",
           },
           400,
         );

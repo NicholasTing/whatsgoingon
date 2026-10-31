@@ -24,7 +24,7 @@ export function SetupPanel({ board }: { board: Board }) {
 - Brand reference: use the supplied board colours unless I provide a public reference.
 - Dashboard destination: a separate sibling directory unless I name an existing dashboard checkout.
 
-## Starting board (write its final monitors array to services.json)
+## Starting board (write its final monitors to services.json with enabled: true)
 
 \`\`\`json
 ${JSON.stringify(configuration, null, 2)}
@@ -50,7 +50,7 @@ ${JSON.stringify(configuration, null, 2)}
         <p>
           Run this prompt from your organisation's codebase. Your coding agent
           audits its dependencies, reviews the monitoring list with you, then
-          writes a services.json array, then starts a read-only dashboard.
+          writes a services.json array, then builds a read-only dashboard.
           Claude and Codex are included by default.
         </p>
         <div className="setup-fields">
@@ -84,8 +84,8 @@ ${JSON.stringify(configuration, null, 2)}
           Your current board supplies starting services, component selections,
           groups, and colours. The audit adds dependencies it finds. Custom
           monitor URLs are included, so review the prompt before sharing it.
-          Later service changes require editing the array and restarting the
-          server.
+          This is a one-time setup. To change services later, edit their enabled
+          flags, rebuild and redeploy the app.
         </p>
         <div className="setup-field">
           <label htmlFor="setup-prompt">Setup prompt</label>

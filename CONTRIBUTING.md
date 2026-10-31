@@ -30,7 +30,7 @@ Open <http://localhost:4173>. The frontend reloads as you edit; restart the serv
 
 | Path | Contents |
 | --- | --- |
-| `services.json` | Service array loaded at server startup |
+| `services.json` | Starter service array selected at build time (`enabled: true/false`) |
 | `src/` | Read-only React frontend |
 | `server/` | Node server, provider feeds (`feeds.ts`), catalogue (`catalog.ts`), alerts, and SQLite storage |
 | `shared/` | Types and board logic used by both sides |
@@ -39,7 +39,7 @@ Open <http://localhost:4173>. The frontend reloads as you edit; restart the serv
 
 ### Adding a provider
 
-Most providers use Atlassian Statuspage. If `https://<status-site>/api/v2/summary.json` returns JSON, add a `statuspage(...)` entry to `server/catalog.ts`, then add its ID to `services.json`, restart the server, and check its status-page link and live components. Include the status page URL in your pull request description. Providers with a different feed format need an adapter in `server/feeds.ts` and a unit test using a recorded response.
+Most providers use Atlassian Statuspage. If `https://<status-site>/api/v2/summary.json` returns JSON, add a `statuspage(...)` entry to `server/catalog.ts`, then add its ID with `enabled: true` to `services.json`, restart the development server, and check its status-page link and live components. Production changes require a rebuild and redeploy. Include the status page URL in your pull request description. Providers with a different feed format need an adapter in `server/feeds.ts` and a unit test using a recorded response.
 
 Add the provider's SVG mark to `public/logos/` and register its ID in `src/ProviderLogo.tsx`. Record its source and license in `public/logos/NOTICE.md`. Custom or unrecognized services use a globe icon. Logos are served locally.
 

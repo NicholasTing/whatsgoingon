@@ -1,6 +1,6 @@
 # whatsgoingon
 
-A read-only status board for the services you rely on. Configure a service array on the server, then view live status, history, and incidents. Everyone sees the same services. No sign-in or provider credentials required.
+A read-only status board for the services you rely on. Choose your services once, build and deploy the app, then view live status, history, and incidents. Everyone sees the same services. No sign-in or provider credentials required.
 
 ![Dark dashboard showing Databricks, Claude and Codex with unknown history (test data)](docs/preview.png)
 
@@ -15,29 +15,45 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:4173>. Databricks (AWS) is configured by default. Select its name to open the official status page. Select its status or a history day to inspect incident reports.
+Open <http://localhost:4173>. Databricks (AWS), Claude and Codex are enabled by default. Select a service name to open the official status page. Select its status or a history day to inspect incident reports.
 
 The frontend reloads while you edit it. Restart the server after changing services.json or backend files.
 
 ## Configure services
 
-Edit `services.json` before starting the server. It is an array of service IDs with optional component selections and groups:
+This is a **one-time setup**: choose the services you want in [`services.json`](services.json), then build and deploy. Visitors use the same read-only board without configuring anything.
+
+The starter array includes all supported services. Databricks (AWS), Claude and Codex have `enabled: true`; the others start disabled. Flip the flags for your stack:
 
 ```json
 [
-  { "id": "databricks", "componentIds": [], "group": "Data" },
-  { "id": "claude", "group": "AI" },
-  { "id": "codex", "group": "AI" }
+  { "id": "databricks", "enabled": true, "componentIds": [], "group": "Data" },
+  { "id": "claude", "enabled": true, "group": "AI" },
+  { "id": "codex", "enabled": true, "group": "AI" },
+  { "id": "github", "enabled": false }
 ]
 ```
 
-IDs map to official status-page URLs and feed adapters in the static dictionary, [`server/catalog.ts`](server/catalog.ts). Available IDs are `databricks`, `claude`, `codex`, `openai`, `github`, `cloudflare`, `tailscale`, `modal`, `circleci`, `vercel`, `supabase`, `npm`, `pypi`, `docker`, `linear`, `notion`, and `discord`.
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable service ID from the catalogue, or your custom monitor ID. |
+| `enabled` | `true` includes the service in the build; `false` excludes it from the board and public API. Omitted flags default to `true` for older configuration files. |
+| `componentIds` | Optional component IDs to monitor. Empty or omitted selects all components. |
+| `group` | Optional display group. |
+| `custom` | Optional public endpoint or Statuspage configuration, shown below. |
 
-An empty or omitted `componentIds` selects all components. To scope a service, start with all components, inspect its `/api/status/<id>` response, copy the desired component IDs into the array, and restart. `group` is optional. The array permits up to 40 distinct IDs; invalid configuration stops startup. An empty array displays an empty board.
+Names, official `statusUrl` values and feed adapters live together in [`server/catalog.ts`](server/catalog.ts); the ID selects them, so you do not need to copy URLs. For example, `claude` selects Claude at `https://status.claude.com`, while `codex` selects the Codex components at `https://status.openai.com`. Available IDs are `databricks`, `claude`, `codex`, `openai`, `github`, `cloudflare`, `tailscale`, `modal`, `circleci`, `vercel`, `supabase`, `npm`, `pypi`, `docker`, `linear`, `notion`, and `discord`.
 
-**To add, remove, or change a service, edit the file, restart the server, and reload the page.** A browser refresh alone does not reload the configuration. For `npm run dev` or `npm start`, stop the process with Ctrl+C and run the same command again. No rebuild is needed for service-array edits. For Compose, run `docker compose restart app` after editing the mounted file.
+To scope a service, preview it with `npm run dev`, inspect its `/api/status/<id>` response, then copy the desired component IDs into the array before building. The array permits up to 40 distinct IDs, including disabled entries. Invalid entries, duplicate IDs and unsafe custom URLs fail validation even when disabled. An empty array or all-disabled array displays an empty board.
 
-Use a different file with `SERVICES_CONFIG=/absolute/path/services.local.json npm start`. The app does not automatically load `.env` files. Appearance and the optional board name remain source configuration in `shared/appearance.ts` and `shared/board.ts`; rebuild and restart after changing them.
+**To add, remove, or change services later, edit the file, rebuild and redeploy the app.** `npm run build` validates the array and saves enabled monitors to `dist/board.json`. Production (`npm start`) reads that snapshot; editing the source file, refreshing the page or restarting the existing build does not change its services.
+
+- Node: stop the app, run `npm run build`, then `npm start` (with your usual environment settings).
+- Docker Compose: run `docker compose up --build -d`. Keep your existing project name and data volume.
+- Hosted builds: commit the configuration change and redeploy with `npm run build` as the build command.
+- Local development: `npm run dev` reads the source array at startup; restart it to preview changes before building.
+
+Use a different source file with `SERVICES_CONFIG=/absolute/path/services.local.json npm run build` (or `npm run dev`). `npm start` always uses the build snapshot and ignores `SERVICES_CONFIG`. The app does not automatically load `.env` files. Appearance and the optional board name remain source configuration in `shared/appearance.ts` and `shared/board.ts`; rebuild and redeploy after changing them.
 
 The browser cannot add services, edit component selections, import a board, or save appearance changes. Old browser boards and `#board=` links no longer control the dashboard; their stored data is left intact. Share links and embeds point to this server's configured board.
 
@@ -49,6 +65,7 @@ For a public custom status page or endpoint, configure the monitor in the same a
 [
   {
     "id": "my-api",
+    "enabled": true,
     "custom": {
       "name": "My API",
       "url": "https://example.com/health",
@@ -66,7 +83,7 @@ Select **Set up your own** in the footer, optionally enter a page name, and choo
 
 The audit produces an inventory with file-and-line evidence, confidence, product/region scope, and proposed monitors. It includes Claude and Codex as setup defaults. Review the list with the agent, resolve uncertain scopes, and add or remove services. Your current board is a starting point; the final board also includes the agreed audit findings. Unsupported or private services remain visible as gaps.
 
-The agent then configures and starts the dashboard in a separate directory. It writes the agreed services.json array, validates it, and starts the read-only board for all visitors. It monitors the dependencies it finds; it does not provision the organisation's infrastructure.
+The agent then configures and starts the dashboard in a separate directory. It writes the agreed services.json array with enabled flags, builds it, and starts the read-only board for all visitors. It monitors the dependencies it finds; it does not provision the organisation's infrastructure.
 
 You can also copy the [standalone setup prompt](docs/setup-prompt.md) and append your board JSON or hosting preferences. Without a starting board, it uses the audit findings, Claude, Codex, and a local preview. The agent needs access to both the organisation codebase and this repository; private repositories require GitHub access.
 
@@ -84,7 +101,7 @@ Review custom monitor URLs before sharing the prompt. Keep credentials in your o
 
 ## Data and credentials
 
-The service array is read once at startup. The browser reads configuration through `/api/board`; it does not persist or modify it. Status, history, incident, RSS, and badge endpoints accept only services configured on this server and use their fixed component selections.
+The service array is selected at build time. Production reads its saved snapshot at startup. The browser reads configuration through `/api/board`; it does not persist or modify it. Status, history, incident, RSS, and badge endpoints accept only services configured on this server and use their fixed component selections.
 
 The server fetches public status pages and stores public observations in `.data/status.sqlite`. Custom monitor URLs and expected text come from the server configuration. Use public targets only. There are no analytics, required API keys, or credentials bundled with the app.
 
@@ -129,11 +146,11 @@ A Docker setup is included:
 docker compose up --build -d
 ```
 
-It exposes port 4173, mounts services.json read-only, and keeps observations in a named volume. To enable alerts, mount your own `watch.config.json` read-only and set `WATCH_CONFIG` to its container path. Do not bake that file into an image.
+It exposes port 4173, includes the service selection in the image, and keeps observations in a named volume. Rebuild the image to change services; there is no runtime service-file mount. To enable alerts, mount your own `watch.config.json` read-only and set `WATCH_CONFIG` to its container path. Do not bake that file into an image.
 
 For a deployment you want to keep, run one continuously available instance with a persistent disk and backups stored on another system. See [persistence and recovery](docs/persistence.md) for volume reuse, service configuration, storage choices, and backup and restore steps.
 
-`npm run build` produces the browser assets. A static deployment, including Vercel’s Vite preset, also needs the Node backend: route `/api/*` to an instance with persistent storage. Otherwise, provider requests return a missing-page response and the board reports that the status service is unavailable. Running the backend as serverless functions requires external persistence and scheduled collection; a temporary SQLite file will lose history when the instance is replaced.
+`npm run build` produces the browser assets and the selected board configuration. A static deployment, including Vercel’s Vite preset, also needs the Node backend: route `/api/*` to an instance with persistent storage. Otherwise, provider requests return a missing-page response and the board reports that the status service is unavailable. Running the backend as serverless functions requires external persistence and scheduled collection; a temporary SQLite file will lose history when the instance is replaced.
 
 ## API
 
@@ -162,7 +179,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Unit tests cover feed normalization, component scope, stale data, history gaps, public URL validation, startup configuration, restart behavior, read-only API enforcement, and webhook retries. Browser tests cover configured service links and logos, ignored legacy boards, incident reports, keyboard navigation, mobile layout, and automated accessibility. Browser tests use deterministic provider responses; live provider checks should also be performed when changing an adapter.
+Unit tests cover feed normalization, component scope, stale data, history gaps, public URL validation, service validation, build snapshots surviving source edits and restarts, read-only API enforcement, and webhook retries. Browser tests cover configured service links and logos, ignored legacy boards, incident reports, keyboard navigation, mobile layout, and automated accessibility. Browser tests use deterministic provider responses; live provider checks should also be performed when changing an adapter.
 
 CI runs these checks on pushes and pull requests, plus `npm audit --audit-level=high` for known dependency vulnerabilities. Dependabot proposes weekly npm and GitHub Actions updates. Major npm updates remain separate for review.
 

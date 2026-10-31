@@ -226,7 +226,7 @@ test("saved boards and old share links cannot change configured services or scop
   ).toEqual(oldBoard);
 });
 
-test("configuration instructions require a server restart and are keyboard accessible", async ({
+test("configuration instructions explain one-time setup and redeployment and are keyboard accessible", async ({
   page,
 }, testInfo) => {
   await mockFeeds(page);
@@ -238,7 +238,9 @@ test("configuration instructions require a server restart and are keyboard acces
   await button.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("services.json");
-  await expect(dialog).toContainText("restart it");
+  await expect(dialog).toContainText("one-time setup");
+  await expect(dialog).toContainText("rebuild and redeploy");
+  await expect(dialog.locator("pre")).toContainText('"enabled": true');
   await expect(dialog).toContainText("set up and maintain yourself");
   await expect(dialog.locator("pre")).toContainText('"databricks"');
   await expect(dialog.locator("input, textarea, select")).toHaveCount(0);

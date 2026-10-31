@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 const directory = mkdtempSync(join(tmpdir(), "whatsgoingon-e2e-"));
 const services = join(directory, "services.json");
-writeFileSync(services, JSON.stringify([{ id: "databricks" }]));
+writeFileSync(services, JSON.stringify([{ id: "databricks", enabled: true }]));
 
 export default defineConfig({
   testDir: "./tests/browser",
