@@ -35,6 +35,11 @@ textarea {
 button {
   cursor: pointer;
 }
+.icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
 button:disabled {
   cursor: default;
   opacity: 0.65;
@@ -191,6 +196,10 @@ h1 {
   cursor: pointer;
 }
 .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   color: var(--accent);
   background: transparent;
   border: 0;
@@ -328,8 +337,7 @@ h1 {
   background: var(--surface);
   min-width: 0;
 }
-.search > span:not(.sr-only) {
-  font-size: 22px;
+.search > .icon {
   color: var(--muted);
 }
 .search input {
@@ -405,6 +413,30 @@ h1 {
   color: var(--text);
   text-align: left;
 }
+.service-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.service-identity > :last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.provider-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e6e8ed;
+  border-radius: 11px;
+  background: #fff;
+  color: #303747;
+}
+.provider-logo img {
+  display: block;
+}
 .edit-hint {
   color: var(--muted);
   font-weight: 400;
@@ -427,15 +459,6 @@ h1 {
   border-radius: 6px;
   background: var(--soft);
   color: var(--state);
-}
-.badge > span {
-  display: inline-grid;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  font-size: 11px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
 }
 .bars {
   width: 100%;

@@ -40,6 +40,8 @@ Open <http://localhost:4173>. The frontend reloads as you edit; restart the serv
 
 Most providers use Atlassian Statuspage. If `https://<status-site>/api/v2/summary.json` returns JSON, add a `statuspage(...)` entry to `server/catalog.ts`, then check that it appears in **Add services** and shows live components. Include the status page URL in your pull request description. Providers with a different feed format need an adapter in `server/feeds.ts` and a unit test using a recorded response.
 
+Add the provider's SVG mark to `public/logos/` and register its ID in `src/ProviderLogo.tsx`. Record its source and license in `public/logos/NOTICE.md`. Custom or unrecognized services use a globe icon. Logos are served locally.
+
 ## Make a change
 
 1. Fork the repository and create a branch from `main`, for example `fix/stale-history` or `feat/add-provider-x`.

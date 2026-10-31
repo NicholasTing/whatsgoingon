@@ -8,7 +8,8 @@ import {
   presets,
 } from "../shared/appearance.ts";
 import type { Appearance, Colour } from "../shared/appearance.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
+import { Icon } from "./Icon.tsx";
 
 export function AppearancePanel({
   appearance,
@@ -150,7 +151,7 @@ export function AppearancePanel({
             <div className="preview-statuses">
               {statuses.map((state) => (
                 <span className={`badge ${state}`} key={state}>
-                  <span aria-hidden="true">{symbols[state]}</span>
+                  <Icon name={state} />
                   {labels[state]}
                 </span>
               ))}

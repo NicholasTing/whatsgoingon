@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import { defaultBoard } from "../../shared/board.ts";
 import { presets } from "../../shared/appearance.ts";
+import { providers } from "../../server/catalog.ts";
 
 async function mockFeeds(page: Page) {
   await page.route("**/api/status/**", (route) => {
@@ -53,6 +54,140 @@ async function mockFeeds(page: Page) {
     }),
   );
 }
+
+test("local logos render throughout the catalogue and themed boards with an accessible custom fallback", async ({
+  page,
+}, testInfo) => {
+  const board = {
+    ...defaultBoard(),
+    monitors: [
+      { id: "databricks", componentIds: ["sql:au"], group: "" },
+      { id: "claude", componentIds: [], group: "" },
+      { id: "codex", componentIds: ["sql:au"], group: "" },
+      {
+        id: "custom-example",
+        componentIds: ["sql:au"],
+        group: "",
+        custom: {
+          name: "Custom API",
+          url: "https://example.com",
+          kind: "http",
+        },
+      },
+    ],
+  };
+  await page.addInitScript(
+    (value) =>
+      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(value)),
+    board,
+  );
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".service")).toHaveCount(4);
+  await expect(page.locator(".brand img")).toHaveAttribute(
+    "src",
+    "/favicon.svg",
+  );
+  await expect(page.locator(".service .provider-logo img")).toHaveCount(3);
+  await expect(
+    page
+      .locator(".service")
+      .filter({ hasText: "Custom API" })
+      .locator(".provider-logo svg"),
+  ).toBeVisible();
+
+  for (const preset of ["Slate", "Midnight"]) {
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await page.getByRole("button", { name: preset }).click();
+    await page.getByRole("button", { name: "Apply appearance" }).click();
+    await page.getByRole("button", { name: "Dismiss message" }).click();
+    await expect(
+      page.getByRole("button", { name: "Databricks (AWS)", exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator("img")
+          .evaluateAll((images) =>
+            images.every(
+              (image) =>
+                image instanceof HTMLImageElement &&
+                image.complete &&
+                image.naturalWidth > 0,
+            ),
+          ),
+      )
+      .toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`logos-${preset.toLowerCase()}-desktop.png`),
+      fullPage: true,
+    });
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`logos-${preset.toLowerCase()}-${width}.png`),
+        fullPage: true,
+      });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+
+  await page.getByRole("button", { name: "Add services", exact: true }).click();
+  await expect(page.locator(".catalogue-row .provider-logo img")).toHaveCount(
+    providers.length,
+  );
+  await expect
+    .poll(() =>
+      page
+        .locator(".catalogue-row img")
+        .evaluateAll((images) =>
+          images.every(
+            (image) =>
+              image instanceof HTMLImageElement &&
+              image.complete &&
+              image.naturalWidth > 0 &&
+              new URL(image.src).origin === location.origin,
+          ),
+        ),
+    )
+    .toBe(true);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("logos-catalogue-desktop.png"),
+  });
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("logos-catalogue-mobile.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Add services", exact: true }),
+  ).toBeFocused();
+});
 
 test("Databricks component scope saves, reloads, and shares without affecting another browser", async ({
   page,
@@ -431,23 +566,41 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
   ).toBeFocused();
 });
 
-
-test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({ page }, testInfo) => {
+test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({
+  page,
+}, testInfo) => {
   await mockFeeds(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Service status", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Service status", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("No account. Your board.")).toHaveCount(0);
   await expect(page.getByText("Every service. One view.")).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("header-desktop.png"), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath("header-desktop.png"),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 320, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("header-mobile.png"), fullPage: true });
-  const setup = page.getByRole("button", { name: "Set up your own", exact: true });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("header-mobile.png"),
+    fullPage: true,
+  });
+  const setup = page.getByRole("button", {
+    name: "Set up your own",
+    exact: true,
+  });
   await setup.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(setup).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Request a feature" })).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Request a feature" }),
+  ).toBeFocused();
 });
