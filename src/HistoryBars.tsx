@@ -13,8 +13,17 @@ export function HistoryBars({
   const [active, setActive] = useState(false);
   const pattern = useId().replace(/:/g, "");
   const day = history?.days[index];
+  const checks = day?.samples
+    ? `${day.samples} local check${day.samples === 1 ? "" : "s"} recorded`
+    : "No local checks recorded";
+  const reports = day?.reports
+    ? `${day.reports} provider report${day.reports === 1 ? "" : "s"}`
+    : "No provider reports recorded";
+  const coverage = day?.complete
+    ? "Continuous local coverage"
+    : "Incomplete local coverage; health between checks is unknown";
   const description = day
-    ? `${day.date}: ${labels[day.state]}. ${day.samples} recorded checks. ${day.complete ? "Continuous coverage" : "Incomplete coverage"}.`
+    ? `${day.date} (UTC): ${labels[day.state]}. ${checks}. ${reports}. ${coverage}.`
     : "Loading recorded history";
   const select = (element: HTMLElement, x: number) => {
     const rect = element.getBoundingClientRect();
@@ -107,9 +116,9 @@ export function HistoryBars({
         <span className="history-description">
           {active
             ? description
-            : history?.days.some((d) => d.samples)
-              ? "Recorded observations · gaps hatched"
-              : "History builds as this instance runs"}
+            : history?.days.some((d) => d.samples || d.reports)
+              ? "Local checks and provider reports · coverage may be incomplete"
+              : "No local checks or provider reports recorded yet"}
         </span>
         <span>Today</span>
       </div>

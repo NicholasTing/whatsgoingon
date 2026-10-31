@@ -723,7 +723,10 @@ export function App() {
                   {labels[s]}
                 </span>
               ))}
-              <span>Hatching = incomplete history</span>
+              <span>
+                Hatched days lack full local coverage; incident colours can
+                still have gaps.
+              </span>
             </div>
           </>
         )}

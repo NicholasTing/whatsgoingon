@@ -44,6 +44,7 @@ async function mockFeeds(page: Page) {
             .slice(0, 10),
           state: "unknown",
           samples: 0,
+          reports: 0,
           complete: false,
         })),
         observedSince: null,
@@ -429,4 +430,77 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
   await expect(
     page.getByRole("button", { name: "Set up your own", exact: true }),
   ).toBeFocused();
+});
+
+test("history explains missing local checks separately from provider reports on hover and focus", async ({
+  page,
+}, testInfo) => {
+  await mockFeeds(page);
+  await page.route("**/api/history/**", (route) =>
+    route.fulfill({
+      json: {
+        days: Array.from({ length: 90 }, (_, i) => ({
+          date: new Date(Date.now() - (89 - i) * 86400000)
+            .toISOString()
+            .slice(0, 10),
+          state: i === 88 ? "outage" : i === 87 ? "operational" : "unknown",
+          samples: i === 87 ? 1 : 0,
+          reports: i === 88 ? 2 : 0,
+          complete: false,
+        })),
+        observedSince: null,
+        source: "observations",
+        warning: "Incomplete history",
+      },
+    }),
+  );
+  await page.goto("/");
+  const bars = page.getByRole("slider");
+  await bars.focus();
+  await page.keyboard.press("Home");
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /Unknown.*No local checks recorded.*No provider reports recorded.*Incomplete local coverage/,
+  );
+  await expect(page.locator(".history-description")).toContainText(
+    "health between checks is unknown",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("missing-history.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /Outage.*No local checks recorded.*2 provider reports/,
+  );
+  await expect(page.locator(".history-description")).not.toContainText(
+    "0 recorded checks",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("incident-only-history.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("ArrowLeft");
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /1 local check recorded.*No provider reports recorded.*Incomplete local coverage/,
+  );
+  await expect(bars.locator("rect.bar").nth(87)).toHaveAttribute("fill", /url/);
+  const box = (await bars.boundingBox())!;
+  await bars.hover({ position: { x: (box.width * 88.5) / 90, y: 16 } });
+  await expect(page.locator(".history-description")).toContainText(
+    "2 provider reports",
+  );
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("history-mobile.png"),
+    fullPage: true,
+  });
 });

@@ -162,6 +162,7 @@ export class Store {
         date: new Date(start).toISOString().slice(0, 10),
         state: worst([...states, ...reports.map((i) => i.state)]),
         samples: observations.reduce((sum, span) => sum + span.count, 0),
+        reports: reports.length,
         complete: end > start && coverage >= (end - start) * 0.99,
       };
     });
@@ -170,7 +171,7 @@ export class Store {
       observedSince: spans[0] ? new Date(spans[0].start).toISOString() : null,
       source: "observations",
       warning:
-        "Recorded checks and provider reports, not measured uptime. Hatched days have incomplete coverage.",
+        "Local checks and provider reports are separate evidence, not measured uptime. A report can colour a day with no local checks; missing coverage stays unknown.",
     };
   }
   prune(now = Date.now()): void {

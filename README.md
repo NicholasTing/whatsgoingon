@@ -94,7 +94,7 @@ GET /api/badge/databricks.svg
 GET /api/health
 ```
 
-The status response includes component IDs, current state, incident updates, observation timestamps, and stale-data warnings. The history response contains recorded checks and provider reports; it is not an uptime SLA measurement. Unknown or stale feeds do not become healthy by default.
+The status response includes component IDs, current state, incident updates, observation timestamps, and stale-data warnings. Each history day separates local check counts (`samples`) from matching provider report counts (`reports`). A reported incident can colour a day with no local checks. With neither checks nor reports, the day stays unknown; partial local coverage is never proof of all-day health. This is not an uptime SLA measurement. Unknown or stale feeds do not become healthy by default.
 
 The UI generates custom monitor URLs and configuration exports. Custom endpoints must use public HTTPS without embedded credentials, query strings, fragments, or a nonstandard port. The server validates DNS answers, pins the destination address, blocks private networks, does not follow redirects, and limits response sizes and request rates.
 
