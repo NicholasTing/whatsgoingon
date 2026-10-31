@@ -37,7 +37,7 @@ Review custom monitor URLs before sharing the prompt. Keep credentials in your o
 - A searchable catalogue, plus custom Statuspage-compatible pages and public HTTPS endpoint checks. Endpoint checks include response time, optional expected text, and TLS certificate expiry.
 - Boards saved in your browser, groups, import/export, share links, and iframe embeds. Shared boards use fresh public data; each recipient controls their own copy.
 - Dark appearance for new and legacy boards without a saved theme; explicit saved choices stay intact. An **Appearance** panel with light and dark presets, custom accent and status colours, a preview, and contrast checks. Appearance stays with the board when you reload, export, or share it.
-- Daily observations and retained incident reports in SQLite. Missing history stays unknown.
+- Daily observations and retained incident reports in SQLite. Select a history day (click, or arrow keys then Enter/Space) or current status to inspect related reports and open the official incident. Reports follow your selected components and UTC dates. Missing reports and history remain explicit.
 - Browser alerts while the page is open. Your own running instance can send background alerts through generic webhooks, Slack, Discord, Teams workflows, or PagerDuty.
 - A read-only JSON API, incident RSS feed, and embeddable status badges.
 
