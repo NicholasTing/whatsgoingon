@@ -534,7 +534,7 @@ export function App() {
         </section>
         <div className="board-heading">
           <div>
-            <h2>{board.name}</h2>
+            {board.name && board.name !== "My status board" && <h2>{board.name}</h2>}
             <span className="small muted">
               Public provider reports. Account-specific issues may differ.
             </span>
@@ -922,24 +922,6 @@ export function App() {
       {modal === "settings" && (
         <Dialog title="Your board" close={() => setModal(null)}>
           <div className="dialog-body settings">
-            <label>
-              Board name
-              <input
-                value={board.name}
-                maxLength={80}
-                onChange={(e) =>
-                  setBoard((old) => ({
-                    ...old,
-                    name: e.target.value || "My status board",
-                  }))
-                }
-              />
-            </label>
-            <p className="muted small">
-              Saved in this browser. No account, cookies, or shared workspace
-              required.
-            </p>
-            <div className="divider" />
             <h3>Notifications</h3>
             <p className="small">
               Browser alerts need this page to remain open. Use your own

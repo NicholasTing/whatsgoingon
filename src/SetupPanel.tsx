@@ -4,13 +4,13 @@ import { readBoard } from "../shared/board.ts";
 import type { Board } from "../shared/types.ts";
 
 export function SetupPanel({ board }: { board: Board }) {
-  const [name, setName] = useState(board.name);
+  const [name, setName] = useState(board.name === "My status board" ? "" : board.name);
   const [target, setTarget] = useState("local");
   const [message, setMessage] = useState("");
   const text = useRef<HTMLTextAreaElement>(null);
   const configuration = readBoard({
     ...board,
-    name: name.trim() || board.name.trim() || "My status board",
+    name: name.trim(),
     notifications: false,
   });
   const prompt = `${instructions.trim()}
@@ -52,11 +52,10 @@ ${JSON.stringify(configuration, null, 2)}
         </p>
         <div className="setup-fields">
           <label>
-            Organisation or page name
+            Organisation or page name (optional)
             <input
               value={name}
               maxLength={80}
-              placeholder={board.name}
               onChange={(event) => {
                 setName(event.target.value);
                 setMessage("");
