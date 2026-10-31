@@ -430,3 +430,24 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
     page.getByRole("button", { name: "Set up your own", exact: true }),
   ).toBeFocused();
 });
+
+
+test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Service status", exact: true })).toBeVisible();
+  await expect(page.getByText("No account. Your board.")).toHaveCount(0);
+  await expect(page.getByText("Every service. One view.")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("header-desktop.png"), fullPage: true });
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("header-mobile.png"), fullPage: true });
+  const setup = page.getByRole("button", { name: "Set up your own", exact: true });
+  await setup.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(setup).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "Request a feature" })).toBeFocused();
+});
