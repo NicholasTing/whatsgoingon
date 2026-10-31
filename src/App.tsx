@@ -276,7 +276,7 @@ export function App() {
                   }
                 }
             }
-            setSnapshots((old) => ({ ...old, [monitor.id]: snapshot }));
+            setSnapshots((old) => ({ ...old, [apiUrl("status", monitor)]: snapshot }));
             if (historyResult.status === "fulfilled")
               setHistories((old) => ({
                 ...old,
@@ -284,14 +284,14 @@ export function App() {
               }));
             setFailures((old) => {
               const copy = { ...old };
-              delete copy[monitor.id];
+              delete copy[apiUrl("status", monitor)];
               return copy;
             });
           } catch (error) {
             if (!controller.signal.aborted)
               setFailures((old) => ({
                 ...old,
-                [monitor.id]:
+                [apiUrl("status", monitor)]:
                   error instanceof Error ? error.message : "Could not refresh.",
               }));
           }
@@ -321,9 +321,9 @@ export function App() {
   }, []);
   const items = board.monitors.map((monitor) => {
     const provider = catalog.find((p) => p.id === monitor.id);
-    const raw = snapshots[monitor.id];
+    const raw = snapshots[apiUrl("status", monitor)];
     const snapshot = raw ? scoped(raw, monitor, now) : undefined;
-    if (snapshot && failures[monitor.id]) {
+    if (snapshot && failures[apiUrl("status", monitor)]) {
       snapshot.state = "unknown";
       snapshot.stale = true;
     }
@@ -657,14 +657,14 @@ export function App() {
                           </div>
                           <button
                             className="status-button"
-                            disabled={!snapshot && !failures[monitor.id]}
-                            aria-label={`${name}: ${!snapshot && !failures[monitor.id] ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
+                            disabled={!snapshot && !failures[apiUrl("status", monitor)]}
+                            aria-label={`${name}: ${!snapshot && !failures[apiUrl("status", monitor)] ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
                             onClick={() => openReports(monitor, name, snapshot)}
                           >
                             <Badge
                               state={snapshot?.state ?? "unknown"}
                               text={
-                                !snapshot && !failures[monitor.id]
+                                !snapshot && !failures[apiUrl("status", monitor)]
                                   ? "Checking"
                                   : undefined
                               }
@@ -678,9 +678,9 @@ export function App() {
                             openReports(monitor, name, snapshot, day)
                           }
                         />
-                        {(failures[monitor.id] || snapshot?.stale) && (
+                        {(failures[apiUrl("status", monitor)] || snapshot?.stale) && (
                           <p className="feed-warning">
-                            {failures[monitor.id] ?? snapshot?.warning}{" "}
+                            {failures[apiUrl("status", monitor)] ?? snapshot?.warning}{" "}
                             {snapshot?.fetchedAt &&
                               `Last success: ${when(snapshot.fetchedAt)}.`}
                           </p>
@@ -792,7 +792,7 @@ export function App() {
                           ? "maintenance"
                           : "operational"
                     }
-                    text={i.status.replaceAll("_", " ")}
+                    text={i.status && i.status !== "Checking" ? i.status.replaceAll("_", " ") : undefined}
                   />
                 </button>
               ))}
@@ -893,7 +893,7 @@ export function App() {
       {editing && (
         <EditMonitor
           monitor={editing}
-          snapshot={snapshots[editing.id]}
+          snapshot={snapshots[apiUrl("status", editing)]}
           name={
             items.find((i) => i.monitor.id === editing.id)?.name ?? editing.id
           }
@@ -974,7 +974,7 @@ export function App() {
                           ? "maintenance"
                           : "operational"
                     }
-                    text={selectedIncident.status.replaceAll("_", " ")}
+                    text={selectedIncident.status && selectedIncident.status !== "Checking" ? selectedIncident.status.replaceAll("_", " ") : undefined}
                   />
                   <span>{selectedIncident.providerName}</span>
                 </div>

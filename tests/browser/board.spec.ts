@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import type { Incident } from "../../shared/types.ts";
 import type { Page } from "@playwright/test";
-import { defaultBoard } from "../../shared/board.ts";
+import { defaultBoard, shareBoard } from "../../shared/board.ts";
 import { presets } from "../../shared/appearance.ts";
 
 async function mockFeeds(page: Page, incidents: Incident[] = []) {
@@ -699,6 +699,43 @@ test("changing component scope does not reuse history when the new request fails
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
+test("returning to a cached scope keeps its reports when the status refresh fails", async ({ page }) => {
+  const board = (component: string) => ({
+    ...defaultBoard(), monitors: [{ id: "databricks", componentIds: [component], group: "" }],
+  });
+  const incident = report({ active: true, status: "investigating", endedAt: null });
+  await mockFeeds(page);
+  let fail = false;
+  await page.route("**/api/status/**", route => {
+    const component = new URL(route.request().url()).searchParams.get("component");
+    if (fail && component === "sql:au") return route.abort();
+    const state = component === "sql:au" ? "outage" : "operational";
+    return route.fulfill({ json: {
+      id: "databricks", name: "Databricks (AWS)", statusUrl: "https://status.databricks.com",
+      checkedAt: new Date().toISOString(), fetchedAt: new Date().toISOString(), stale: false, state,
+      components: [{ id: component, name: "SQL", group: "", state }],
+      incidents: component === "sql:au" ? [incident] : [],
+    } });
+  });
+  await page.route("**/api/history/**", route => route.fulfill({ json: {
+    days: Array.from({ length: 90 }, (_, i) => ({
+      date: new Date(Date.now() - (89 - i) * 86400000).toISOString().slice(0, 10),
+      state: "outage", samples: 1, complete: false,
+    })), observedSince: null, source: "observations", warning: "Incomplete history",
+  } }));
+  await page.goto(`/${shareBoard(board("sql:au"))}`);
+  await expect(page.getByRole("button", { name: "Databricks (AWS): Outage. View reports" })).toBeVisible();
+  await page.evaluate(hash => { location.hash = hash; }, shareBoard(board("sql:us")));
+  await expect(page.getByRole("button", { name: "Databricks (AWS): Operational. View reports" })).toBeVisible();
+  fail = true;
+  await page.evaluate(hash => { location.hash = hash; }, shareBoard(board("sql:au")));
+  await expect(page.getByRole("button", { name: "Databricks (AWS): Unknown. View reports" })).toBeVisible();
+  await page.getByRole("slider").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toContainText(incident.title);
+  await expect(page.getByRole("link", { name: "View the provider’s incident" })).toHaveAttribute("href", incident.url);
+});
+
 test("status reports wait for a snapshot and keep Checking as their accessible name", async ({ page }) => {
   await mockFeeds(page);
   let release!: () => void;
@@ -722,17 +759,20 @@ test("status reports wait for a snapshot and keep Checking as their accessible n
 
 test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
   const at = new Date().toISOString();
-  const reports: Incident[] = (["outage", "degraded"] as const).map(state => ({
-    id: state, title: `${state} incident`, status: "investigating", state,
+  const reports: Incident[] = (["outage", "degraded"] as const).flatMap(state => ["investigating", "", "Checking"].map(status => ({
+    id: `${state}-${status}`, title: `${state} ${status || "empty"} incident`, status, state,
     active: true, maintenance: false, startedAt: at,
     updatedAt: at, endedAt: null, componentIds: [],
     body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
-  }));
+  })));
   await mockFeeds(page, reports);
   await page.goto("/");
-  await page.getByRole("button", { name: "Incidents (2)", exact: true }).click();
-  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Degraded · investigating"]);
+  await page.getByRole("button", { name: "Incidents (6)", exact: true }).click();
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded"]);
   await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
-  await page.getByRole("button", { name: /outage incident/ }).click();
-  await expect(page.getByRole("dialog").locator(".badge")).toHaveText("Outage · investigating");
+  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"]]) {
+    await page.getByRole("button", { name: new RegExp(title) }).click();
+    await expect(page.getByRole("dialog").locator(".badge")).toHaveText(label);
+    await page.keyboard.press("Escape");
+  }
 });
