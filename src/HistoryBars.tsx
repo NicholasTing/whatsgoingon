@@ -1,29 +1,31 @@
 import { useId, useState } from "react";
-import type { History } from "../shared/types.ts";
-import { labels } from "../shared/types.ts";
+import type { DailyStatus, History } from "../shared/types.ts";
+import { historyDescription } from "../shared/history.ts";
 
 export function HistoryBars({
   name,
   history,
+  onSelect,
 }: {
   name: string;
   history?: History;
+  onSelect?: (day: DailyStatus) => void;
 }) {
   const [index, setIndex] = useState(89);
   const [active, setActive] = useState(false);
   const pattern = useId().replace(/:/g, "");
   const day = history?.days[index];
   const description = day
-    ? `${day.date}: ${labels[day.state]}. ${day.samples} recorded checks. ${day.complete ? "Continuous coverage" : "Incomplete coverage"}.`
+    ? historyDescription(day)
     : "Loading recorded history";
   const select = (element: HTMLElement, x: number) => {
     const rect = element.getBoundingClientRect();
-    setIndex(
-      Math.max(
-        0,
-        Math.min(89, Math.floor(((x - rect.left) / rect.width) * 90)),
-      ),
+    const selected = Math.max(
+      0,
+      Math.min(89, Math.floor(((x - rect.left) / rect.width) * 90)),
     );
+    setIndex(selected);
+    return history?.days[selected];
   };
   return (
     <div className="history">
@@ -31,7 +33,7 @@ export function HistoryBars({
         className="bars"
         role="slider"
         tabIndex={0}
-        aria-label={`${name} daily observations. Use arrow keys to choose a day.`}
+        aria-label={`${name} daily history. Use arrow keys to choose a day.${onSelect ? " Press Enter or Space to view details." : ""}`}
         aria-valuemin={1}
         aria-valuemax={90}
         aria-valuenow={index + 1}
@@ -47,7 +49,17 @@ export function HistoryBars({
           select(e.currentTarget, e.clientX);
           e.currentTarget.focus();
         }}
+        onClick={(e) => {
+          const selected =
+            e.detail === 0 ? day : select(e.currentTarget, e.clientX);
+          if (selected) onSelect?.(selected);
+        }}
         onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && onSelect && day) {
+            e.preventDefault();
+            onSelect(day);
+            return;
+          }
           const next =
             e.key === "ArrowLeft" || e.key === "ArrowDown"
               ? index - 1
@@ -77,6 +89,7 @@ export function HistoryBars({
                 d="M-1 1L1 -1M0 5L5 0M4 6L6 4"
                 stroke="var(--muted)"
                 strokeWidth="1"
+                strokeOpacity="0.4"
               />
             </pattern>
           </defs>
@@ -107,9 +120,11 @@ export function HistoryBars({
         <span className="history-description">
           {active
             ? description
-            : history?.days.some((d) => d.samples)
-              ? "Recorded observations · gaps hatched"
-              : "History builds as this instance runs"}
+            : history?.days.some((d) => d.samples || d.incidentIds?.length)
+              ? onSelect
+                ? "Daily history · select a day for details"
+                : "Daily history · recorded checks and provider reports"
+              : "No history yet · unknown until observed"}
         </span>
         <span>Today</span>
       </div>

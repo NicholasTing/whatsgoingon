@@ -26,12 +26,26 @@ test("colour contrast follows known ratios and every preset is readable", () => 
   }
 });
 
-test("legacy boards keep their monitors and receive the default appearance", () => {
+test("new boards start with Midnight and legacy boards receive the same dark appearance", () => {
+  assert.equal(defaultBoard().appearance.mode, "dark");
+  assert.deepEqual(
+    defaultBoard().appearance,
+    presets.find((preset) => preset.name === "Midnight")?.appearance,
+  );
   const { appearance, ...legacy } = defaultBoard();
   const board = readBoard({ ...legacy, name: "My original board" });
   assert.equal(board.name, "My original board");
   assert.deepEqual(board.monitors, legacy.monitors);
   assert.deepEqual(board.appearance, defaultAppearance);
+});
+
+test("saved and shared light or custom appearances keep their chosen colours", () => {
+  const light = presets[0].appearance;
+  for (const appearance of [light, { ...light, accent: "#204482" }]) {
+    const board = { ...defaultBoard(), appearance };
+    assert.deepEqual(readBoard(board).appearance, appearance);
+    assert.deepEqual(boardFromHash(shareBoard(board))?.appearance, appearance);
+  }
 });
 
 test("appearance round trips through sharing and rejects unsafe or unreadable imports", () => {
@@ -40,7 +54,7 @@ test("appearance round trips through sharing and rejects unsafe or unreadable im
     boardFromHash(shareBoard(board))?.appearance,
     board.appearance,
   );
-  for (const accent of ["#ffffff", "red", "#123", "url(https://example.com)"]) {
+  for (const accent of ["red", "#123", "url(https://example.com)"]) {
     assert.throws(() =>
       readBoard({
         ...defaultBoard(),
@@ -48,6 +62,12 @@ test("appearance round trips through sharing and rejects unsafe or unreadable im
       }),
     );
   }
+  assert.throws(() =>
+    readBoard({
+      ...board,
+      appearance: { ...presets[0].appearance, accent: "#ffffff" },
+    }),
+  );
   assert.throws(() =>
     readBoard({
       ...board,
