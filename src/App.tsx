@@ -86,12 +86,19 @@ function when(value: string | null): string {
       })
     : "Time not supplied";
 }
-function Badge({ state, text }: { state: Health; text?: string }) {
+function incidentStatusText(status: string): string | undefined {
+  return status && status !== "Checking"
+    ? status.replaceAll("_", " ")
+    : undefined;
+}
+function Badge({ state, text, checking = false }: {
+  state: Health;
+  text?: string;
+  checking?: boolean;
+}) {
   return (
     <span className={`badge ${state}`}>
-      {text && text !== "Checking"
-        ? `${labels[state]} · ${text}`
-        : text ?? labels[state]}
+      {checking ? "Checking" : text ? `${labels[state]} · ${text}` : labels[state]}
     </span>
   );
 }
@@ -628,11 +635,7 @@ export function App() {
                           </div>
                           <Badge
                             state={snapshot?.state ?? "unknown"}
-                            text={
-                              !snapshot && !failures[monitor.id]
-                                ? "Checking"
-                                : undefined
-                            }
+                            checking={!snapshot && !failures[monitor.id]}
                           />
                         </div>
                         <HistoryBars
@@ -753,7 +756,7 @@ export function App() {
                           ? "maintenance"
                           : "operational"
                     }
-                    text={i.status && i.status !== "Checking" ? i.status.replaceAll("_", " ") : undefined}
+                    text={incidentStatusText(i.status)}
                   />
                 </button>
               ))}
@@ -889,9 +892,11 @@ export function App() {
                 state={
                   selectedIncident.active
                     ? selectedIncident.state
-                    : "operational"
+                    : selectedIncident.status === "scheduled"
+                      ? "maintenance"
+                      : "operational"
                 }
-                text={selectedIncident.status && selectedIncident.status !== "Checking" ? selectedIncident.status.replaceAll("_", " ") : undefined}
+                text={incidentStatusText(selectedIncident.status)}
               />
               <span>{selectedIncident.providerName}</span>
             </div>

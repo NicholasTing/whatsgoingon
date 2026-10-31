@@ -516,12 +516,16 @@ test("incident lifecycle badges identify impact without colour", async ({ page }
     updatedAt: at, endedAt: null, componentIds: [],
     body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
   })));
+  reports.push({
+    ...reports[0], id: "scheduled", title: "Scheduled maintenance", status: "scheduled",
+    state: "maintenance", maintenance: true, active: false,
+  });
   await mockFeeds(page, reports);
   await page.goto("/");
   await page.getByRole("button", { name: "Incidents (6)", exact: true }).click();
-  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded"]);
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded", "Maintenance · scheduled"]);
   await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
-  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"]]) {
+  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"], ["Scheduled maintenance", "Maintenance · scheduled"]]) {
     await page.getByRole("button", { name: new RegExp(title) }).click();
     await expect(page.getByRole("dialog").locator(".badge")).toHaveText(label);
     await page.keyboard.press("Escape");
