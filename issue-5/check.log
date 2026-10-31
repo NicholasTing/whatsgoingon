@@ -1,0 +1,46 @@
+
+> whatsgoingon@0.1.0 check
+> npm test && npm run build
+
+
+> whatsgoingon@0.1.0 test
+> node --test tests/*.test.ts
+
+✔ colour contrast follows known ratios and every preset is readable (1.323834ms)
+✔ legacy boards keep their monitors and receive the default appearance (0.602208ms)
+✔ appearance round trips through sharing and rejects unsafe or unreadable imports (0.6365ms)
+✔ Databricks product and region intersections exclude unrelated incidents (2.925292ms)
+✔ Codex uses full components, filters unrelated incidents, and rejects script links (0.868834ms)
+✔ current feed stays useful when optional incident history fails (0.259209ms)
+✔ failed feeds and old observations become unknown without losing the last observation (0.075917ms)
+✔ share/import round trip excludes unexpected keys and disables recipient notifications (1.267584ms)
+✔ outbound URL validation rejects private, mapped, encoded, and non-HTTPS targets (1.184833ms)
+✔ history never invents healthy days and persists across collection failures (1.229291ms)
+✔ stable observations compact into spans but downtime gaps remain separate (0.252542ms)
+✔ change detection establishes a baseline and catches updates and recovery (0.11625ms)
+✔ webhook outbox retries failures and removes delivered events without logging secrets (0.319167ms)
+✔ notification destinations receive their required payload format (0.083917ms)
+✔ daily sample counts stay exact across UTC midnight (0.280583ms)
+✔ a user-configured collector filters scope, enqueues changes and retains its baseline on restart (4.023208ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 119.89475
+
+> whatsgoingon@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 118 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.59 kB │ gzip:   0.36 kB
+dist/assets/index-Cc2l5PGo.css   16.58 kB │ gzip:   4.04 kB
+dist/assets/index-BTyQSF-a.js   353.16 kB │ gzip: 108.07 kB
+
+✓ built in 71ms
