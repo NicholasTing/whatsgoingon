@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type {
   Board,
@@ -10,7 +10,7 @@ import type {
   Provider,
   Snapshot,
 } from "../shared/types.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
 import {
   boardFromHash,
   changesBetween,
@@ -24,11 +24,19 @@ import { HistoryBars } from "./HistoryBars.tsx";
 import { AppearancePanel } from "./AppearancePanel.tsx";
 import { SetupPanel } from "./SetupPanel.tsx";
 import { appearanceStyle } from "../shared/appearance.ts";
+import { historyDescription } from "../shared/history.ts";
 
 const STORAGE = "whatsgoingon.board.v1";
 const GITHUB = "https://github.com/NicholasTing/whatsgoingon";
 type Catalogue = Omit<Provider, "feed">;
 type IncidentRow = Incident & { providerId: string; providerName: string };
+type StatusDetails = {
+  title: string;
+  state: Health;
+  description: string;
+  incidents: IncidentRow[];
+  statusUrl?: string;
+};
 function initial(): { board: Board; message: string } {
   try {
     const shared = boardFromHash(location.hash);
@@ -89,7 +97,7 @@ function when(value: string | null): string {
 function Badge({ state, text }: { state: Health; text?: string }) {
   return (
     <span className={`badge ${state}`}>
-      <span aria-hidden="true">{symbols[state]}</span>
+      <span className="status-dot" aria-hidden="true" />
       {text ?? labels[state]}
     </span>
   );
@@ -106,6 +114,7 @@ function Dialog({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current!;
     const previous = document.activeElement as HTMLElement | null;
@@ -135,10 +144,10 @@ function Dialog({
             close();
         }
       }}
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
     >
       <div className="dialog-head">
-        <h2 id="dialog-title">{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button
           type="button"
           className="icon-button"
@@ -176,6 +185,9 @@ export function App() {
   >(null);
   const [editing, setEditing] = useState<Monitor | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
+    null,
+  );
+  const [statusDetails, setStatusDetails] = useState<StatusDetails | null>(
     null,
   );
   const previous = useRef<Record<string, Snapshot>>({});
@@ -272,7 +284,7 @@ export function App() {
             if (historyResult.status === "fulfilled")
               setHistories((old) => ({
                 ...old,
-                [monitor.id]: historyResult.value,
+                [apiUrl("history", monitor)]: historyResult.value,
               }));
             setFailures((old) => {
               const copy = { ...old };
@@ -323,6 +335,7 @@ export function App() {
       monitor,
       provider,
       snapshot,
+      history: histories[apiUrl("history", monitor)],
       name: monitor.custom?.name ?? provider?.name ?? monitor.id,
     };
   });
@@ -380,6 +393,11 @@ export function App() {
           },
     );
     setMessage("Service added to your board.");
+  }
+  function openStatus(details: StatusDetails) {
+    if (details.incidents.length === 1 && details.state !== "unknown")
+      setSelectedIncident(details.incidents[0]);
+    else setStatusDetails(details);
   }
   async function share() {
     try {
@@ -445,39 +463,20 @@ export function App() {
           </span>
         </a>
         <div className="header-right">
-          <span className="privacy-note">No account. Your board.</span>
           <a href={GITHUB} target="_blank" rel="noreferrer">
-            Source ↗
+            GitHub
           </a>
         </div>
       </header>
       <main id="main" className={embed ? "embedded" : ""}>
         {!embed && (
           <section className="masthead">
-            <div>
-              <p className="eyebrow">YOUR SERVICE WATCHLIST</p>
-              <h1>Every service. One view.</h1>
-              <p className="intro">
-                Status, incidents, and history for the tools you rely on.
-              </p>
-            </div>
+            <h1>{board.name || "Service status"}</h1>
             <div className="masthead-actions">
               <button
                 className="secondary"
                 onClick={() => setModal("appearance")}
               >
-                <svg
-                  viewBox="0 0 20 20"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  aria-hidden="true"
-                >
-                  <circle cx="10" cy="10" r="7" />
-                  <path d="M10 3v14M3 10h7" />
-                </svg>
                 Appearance
               </button>
               <button
@@ -487,7 +486,7 @@ export function App() {
                 Board settings
               </button>
               <button className="primary" onClick={() => setModal("add")}>
-                ＋ Add services
+                Add services
               </button>
             </div>
           </section>
@@ -505,15 +504,13 @@ export function App() {
           </div>
         )}
         <section className={`summary ${state}`} aria-label="Board summary">
-          <div className="summary-icon" aria-hidden="true">
-            {symbols[state]}
-          </div>
+          <span className="status-dot" aria-hidden="true" />
           <div>
             <h2>
               {!items.length
-                ? "Make yourself a status board"
+                ? "No services selected"
                 : unknown === items.length
-                  ? "Getting the full picture"
+                  ? "Status unavailable"
                   : affected
                     ? `${affected} ${affected === 1 ? "service needs" : "services need"} attention`
                     : unknown
@@ -547,14 +544,14 @@ export function App() {
         </section>
         <div className="board-heading">
           <div>
-            <h2>{board.name}</h2>
+            {embed && <h1>{board.name || "Service status"}</h1>}
             <span className="small muted">
               Public provider reports. Account-specific issues may differ.
             </span>
           </div>
           <div className="board-actions">
             <button className="text-button" onClick={share}>
-              ↗ Share board
+              Share board
             </button>
             <button
               className="text-button"
@@ -615,7 +612,7 @@ export function App() {
                   {group && <h3 className="group-title">{group}</h3>}
                   {visible
                     .filter((item) => item.monitor.group === group)
-                    .map(({ monitor, snapshot, name }) => (
+                    .map(({ monitor, snapshot, name, history }) => (
                       <article className="service" key={monitor.id}>
                         <div className="service-heading">
                           <div>
@@ -639,18 +636,57 @@ export function App() {
                                 : ""}
                             </p>
                           </div>
-                          <Badge
-                            state={snapshot?.state ?? "unknown"}
-                            text={
-                              !snapshot && !failures[monitor.id]
-                                ? "Checking"
-                                : undefined
+                          <button
+                            className="status-button"
+                            aria-label={`${name}: ${labels[snapshot?.state ?? "unknown"]}. View status details`}
+                            onClick={() =>
+                              openStatus({
+                                title: `${name} · current status`,
+                                state: snapshot?.state ?? "unknown",
+                                description:
+                                  failures[monitor.id] ??
+                                  snapshot?.warning ??
+                                  (snapshot?.stale
+                                    ? `Fresh status is unavailable. Last successful check: ${when(snapshot.fetchedAt)}.`
+                                    : snapshot
+                                      ? "Latest status for your selected products and regions."
+                                      : "Status has not been received yet."),
+                                incidents: incidents.filter(
+                                  (i) =>
+                                    i.providerId === monitor.id && i.active,
+                                ),
+                                statusUrl: snapshot?.statusUrl,
+                              })
                             }
-                          />
+                          >
+                            <Badge
+                              state={snapshot?.state ?? "unknown"}
+                              text={
+                                !snapshot && !failures[monitor.id]
+                                  ? "Checking"
+                                  : undefined
+                              }
+                            />
+                          </button>
                         </div>
                         <HistoryBars
                           name={name}
-                          history={histories[monitor.id]}
+                          history={history}
+                          onSelect={(day) =>
+                            openStatus({
+                              title: `${name} · ${day.date} (UTC)`,
+                              state: day.state,
+                              description: historyDescription(day),
+                              incidents: (history?.incidents ?? [])
+                                .filter((i) => day.incidentIds?.includes(i.id))
+                                .map((i) => ({
+                                  ...i,
+                                  providerId: monitor.id,
+                                  providerName: name,
+                                })),
+                              statusUrl: snapshot?.statusUrl,
+                            })
+                          }
                         />
                         {(failures[monitor.id] || snapshot?.stale) && (
                           <p className="feed-warning">
@@ -664,7 +700,7 @@ export function App() {
                           .slice(0, 2)
                           .map((i) => (
                             <button
-                              className="incident-inline"
+                              className={`incident-inline ${i.maintenance ? "maintenance" : i.state}`}
                               key={i.id}
                               onClick={() =>
                                 setSelectedIncident({
@@ -674,12 +710,10 @@ export function App() {
                                 })
                               }
                             >
-                              <span aria-hidden="true">
-                                {i.maintenance ? "◇" : "!"}
-                              </span>
+                              <span className="status-dot" aria-hidden="true" />
                               <span>{i.title}</span>
                               <span className="small">
-                                {i.status.replaceAll("_", " ")} ↗
+                                {i.status.replaceAll("_", " ")}
                               </span>
                             </button>
                           ))}
@@ -811,67 +845,31 @@ export function App() {
             )}
           </div>
         )}
-        {!embed && (
-          <section className="setup-section" aria-labelledby="setup-title">
-            <div>
-              <h2 id="setup-title">Make it your team's status page</h2>
-              <p className="small muted">
-                Copy a prompt to audit your codebase, review its dependencies,
-                and start a dashboard with Claude and Codex included.
-              </p>
-            </div>
-            <button className="primary" onClick={() => setModal("setup")}>
-              Set up your own
-            </button>
-          </section>
-        )}
-        {!embed && (
-          <section
-            className="feedback-section"
-            aria-labelledby="feedback-title"
-          >
-            <div>
-              <p className="eyebrow">HELP SHAPE WHAT'S NEXT</p>
-              <h2 id="feedback-title">Have an idea or found a bug?</h2>
-              <p className="muted small">
-                Browse existing issues or start a conversation on GitHub.
-              </p>
-            </div>
-            <div className="feedback-links">
+        <footer className="dashboard-footer">
+          {!embed && (
+            <nav className="footer-links" aria-label="Dashboard resources">
+              <button className="text-button" onClick={() => setModal("setup")}>
+                Set up your own
+              </button>
               <a
-                className="secondary"
                 href={`${GITHUB}/issues/new?template=feature-request.yml`}
                 target="_blank"
                 rel="noreferrer"
               >
-                Request a feature ↗
+                Request a feature
               </a>
               <a
-                className="secondary"
                 href={`${GITHUB}/issues/new?template=bug-report.yml`}
                 target="_blank"
                 rel="noreferrer"
               >
-                Report a bug ↗
+                Report a bug
               </a>
-              <a
-                className="small"
-                href={`${GITHUB}/issues`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Browse issues ↗
+              <a href={`${GITHUB}/issues`} target="_blank" rel="noreferrer">
+                Browse issues
               </a>
-              <span className="small muted">
-                GitHub account and repository access required.
-              </span>
-            </div>
-          </section>
-        )}
-        <footer>
-          <span>
-            Built for a quick look. Follow the provider for the full story.
-          </span>
+            </nav>
+          )}
           <span>Times in your timezone · daily history in UTC</span>
         </footer>
       </main>
@@ -933,6 +931,47 @@ export function App() {
           }}
         />
       )}
+      {statusDetails && (
+        <Dialog
+          title={statusDetails.title}
+          close={() => setStatusDetails(null)}
+        >
+          <div className="dialog-body">
+            <Badge state={statusDetails.state} />
+            <p className="status-description">{statusDetails.description}</p>
+            {statusDetails.incidents.length ? (
+              <>
+                <h3>Related provider reports</h3>
+                {statusDetails.incidents.map((incident) => (
+                  <button
+                    className={`incident-inline ${incident.maintenance ? "maintenance" : incident.state}`}
+                    key={incident.id}
+                    onClick={() => setSelectedIncident(incident)}
+                  >
+                    <span className="status-dot" aria-hidden="true" />
+                    <span>{incident.title}</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <p className="muted">
+                No related incident report is available from the provider.
+              </p>
+            )}
+            {statusDetails.statusUrl && (
+              <p className="status-description">
+                <a
+                  href={statusDetails.statusUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View provider status page
+                </a>
+              </p>
+            )}
+          </div>
+        </Dialog>
+      )}
       {selectedIncident && (
         <Dialog
           title={selectedIncident.title}
@@ -943,9 +982,13 @@ export function App() {
             <div className="flex">
               <Badge
                 state={
-                  selectedIncident.active
-                    ? selectedIncident.state
-                    : "operational"
+                  selectedIncident.status === "scheduled"
+                    ? "maintenance"
+                    : selectedIncident.status === "no_longer_reported"
+                      ? "unknown"
+                      : selectedIncident.active
+                        ? selectedIncident.state
+                        : "operational"
                 }
                 text={selectedIncident.status.replaceAll("_", " ")}
               />
@@ -976,26 +1019,8 @@ export function App() {
         </Dialog>
       )}
       {modal === "settings" && (
-        <Dialog title="Your board" close={() => setModal(null)}>
+        <Dialog title="Board settings" close={() => setModal(null)}>
           <div className="dialog-body settings">
-            <label>
-              Board name
-              <input
-                value={board.name}
-                maxLength={80}
-                onChange={(e) =>
-                  setBoard((old) => ({
-                    ...old,
-                    name: e.target.value || "My status board",
-                  }))
-                }
-              />
-            </label>
-            <p className="muted small">
-              Saved in this browser. No account, cookies, or shared workspace
-              required.
-            </p>
-            <div className="divider" />
             <h3>Notifications</h3>
             <p className="small">
               Browser alerts need this page to remain open. Use your own

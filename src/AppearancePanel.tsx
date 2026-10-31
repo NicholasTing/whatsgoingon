@@ -8,7 +8,7 @@ import {
   presets,
 } from "../shared/appearance.ts";
 import type { Appearance, Colour } from "../shared/appearance.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
 
 export function AppearancePanel({
   appearance,
@@ -150,7 +150,7 @@ export function AppearancePanel({
             <div className="preview-statuses">
               {statuses.map((state) => (
                 <span className={`badge ${state}`} key={state}>
-                  <span aria-hidden="true">{symbols[state]}</span>
+                  <span className="status-dot" aria-hidden="true" />
                   {labels[state]}
                 </span>
               ))}
@@ -160,7 +160,7 @@ export function AppearancePanel({
         </div>
         <p className="contrast-note small">
           Text and chart colours must have at least 4.5:1 contrast against the
-          canvas. Status labels and symbols stay visible alongside colour.
+          canvas. Status labels stay visible alongside colour.
         </p>
       </div>
       <div className="dialog-footer">

@@ -52,9 +52,11 @@ export type DailyStatus = {
   state: Health;
   samples: number;
   complete: boolean;
+  incidentIds?: string[];
 };
 export type History = {
   days: DailyStatus[];
+  incidents?: Incident[];
   observedSince: string | null;
   source: "observations";
   warning: string;
@@ -94,11 +96,4 @@ export const labels: Record<Health, string> = {
   outage: "Outage",
   maintenance: "Maintenance",
   unknown: "Unknown",
-};
-export const symbols: Record<Health, string> = {
-  operational: "✓",
-  degraded: "!",
-  outage: "×",
-  maintenance: "◇",
-  unknown: "?",
 };

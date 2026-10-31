@@ -10,7 +10,7 @@ export function SetupPanel({ board }: { board: Board }) {
   const text = useRef<HTMLTextAreaElement>(null);
   const configuration = readBoard({
     ...board,
-    name: name.trim() || board.name.trim() || "My status board",
+    name: name.trim(),
     notifications: false,
   });
   const prompt = `${instructions.trim()}
@@ -52,11 +52,11 @@ ${JSON.stringify(configuration, null, 2)}
         </p>
         <div className="setup-fields">
           <label>
-            Organisation or page name
+            Organisation or page name (optional)
             <input
               value={name}
               maxLength={80}
-              placeholder={board.name}
+              placeholder="e.g. Team status"
               onChange={(event) => {
                 setName(event.target.value);
                 setMessage("");

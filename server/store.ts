@@ -117,7 +117,16 @@ export class Store {
         "SELECT start,end,count,states FROM spans WHERE provider=? AND end>=? ORDER BY start",
       )
       .all(id, beginning) as Span[];
-    const incidents = this.incidents(id);
+    const incidents = this.incidents(id).filter(
+      (incident) =>
+        incident.status !== "scheduled" &&
+        (!monitor.componentIds.length ||
+          !incident.componentIds.length ||
+          incident.componentIds.some((component) =>
+            monitor.componentIds.includes(component),
+          )),
+    );
+    const relatedIds = new Set<string>();
     const days = Array.from({ length: 90 }, (_, index) => {
       const start = beginning + index * DAY;
       const end = Math.min(start + DAY, now);
@@ -148,29 +157,33 @@ export class Store {
           span.end,
         ).state;
       });
-      const reports = incidents.filter(
-        (i) =>
-          (!monitor.componentIds.length ||
-            !i.componentIds.length ||
-            i.componentIds.some((c) => monitor.componentIds.includes(c))) &&
-          i.startedAt &&
-          Date.parse(i.startedAt) < end &&
-          (i.active ? now : Date.parse(i.endedAt ?? i.startedAt)) >= start &&
-          i.status !== "scheduled",
-      );
+      const reports = incidents.filter((incident) => {
+        const began = Date.parse(incident.startedAt ?? "");
+        if (!Number.isFinite(began) || began > now || began >= start + DAY)
+          return false;
+        if (incident.active) return now >= start;
+        const ended = Date.parse(incident.endedAt ?? "");
+        // Without a resolution time, only the known start day is supported.
+        return Number.isFinite(ended) && ended > began
+          ? ended > start
+          : began >= start;
+      });
+      for (const report of reports) relatedIds.add(report.id);
       return {
         date: new Date(start).toISOString().slice(0, 10),
         state: worst([...states, ...reports.map((i) => i.state)]),
         samples: observations.reduce((sum, span) => sum + span.count, 0),
         complete: end > start && coverage >= (end - start) * 0.99,
+        incidentIds: reports.map((report) => report.id),
       };
     });
     return {
       days,
+      incidents: incidents.filter((incident) => relatedIds.has(incident.id)),
       observedSince: spans[0] ? new Date(spans[0].start).toISOString() : null,
       source: "observations",
       warning:
-        "Recorded checks and provider reports, not measured uptime. Hatched days have incomplete coverage.",
+        "Daily status combines recorded checks and provider reports. Days without either are unknown. Check coverage does not measure uptime.",
     };
   }
   prune(now = Date.now()): void {

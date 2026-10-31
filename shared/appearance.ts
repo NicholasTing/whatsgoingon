@@ -30,6 +30,14 @@ export const surfaces = {
     control: "#8190a6",
   },
 };
+export const defaultAppearance: Appearance = {
+  mode: "dark",
+  accent: "#a6bcff",
+  operational: "#79d4ac",
+  degraded: "#edc275",
+  outage: "#ff9da8",
+  maintenance: "#b7a8ff",
+};
 export const presets: { name: string; appearance: Appearance }[] = [
   {
     name: "Slate",
@@ -55,17 +63,9 @@ export const presets: { name: string; appearance: Appearance }[] = [
   },
   {
     name: "Midnight",
-    appearance: {
-      mode: "dark",
-      accent: "#a6bcff",
-      operational: "#79d4ac",
-      degraded: "#edc275",
-      outage: "#ff9da8",
-      maintenance: "#b7a8ff",
-    },
+    appearance: defaultAppearance,
   },
 ];
-export const defaultAppearance = presets[0].appearance;
 export const hexColour = /^#[0-9a-f]{6}$/i;
 
 export function contrast(a: string, b: string): number {
