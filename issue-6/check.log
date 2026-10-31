@@ -1,0 +1,47 @@
+
+> whatsgoingon@0.1.0 check
+> npm test && npm run build
+
+
+> whatsgoingon@0.1.0 test
+> node --test tests/*.test.ts
+
+✔ colour contrast follows known ratios and every preset is readable (1.351917ms)
+✔ legacy boards keep their monitors and receive the default appearance (0.601542ms)
+✔ appearance round trips through sharing and rejects unsafe or unreadable imports (0.832792ms)
+✔ Databricks product and region intersections exclude unrelated incidents (2.824792ms)
+✔ Codex uses full components, filters unrelated incidents, and rejects script links (0.809042ms)
+✔ current feed stays useful when optional incident history fails (0.279042ms)
+✔ failed feeds and old observations become unknown without losing the last observation (0.070333ms)
+✔ share/import round trip excludes unexpected keys and disables recipient notifications (1.274541ms)
+✔ outbound URL validation rejects private, mapped, encoded, and non-HTTPS targets (1.209458ms)
+✔ history never invents healthy days and persists across collection failures (1.344166ms)
+✔ stable observations compact into spans but downtime gaps remain separate (0.2535ms)
+✔ change detection establishes a baseline and catches updates and recovery (0.121417ms)
+✔ webhook outbox retries failures and removes delivered events without logging secrets (0.325167ms)
+✔ notification destinations receive their required payload format (0.0885ms)
+✔ daily sample counts stay exact across UTC midnight (0.290375ms)
+✔ a user-configured collector filters scope, enqueues changes and retains its baseline on restart (4.06525ms)
+✔ unnamed boards load and share while existing names remain intact (0.430292ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124.201917
+
+> whatsgoingon@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 118 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.59 kB │ gzip:   0.36 kB
+dist/assets/index-xN0K8NfV.css   17.48 kB │ gzip:   4.19 kB
+dist/assets/index-BjCbOlKG.js   354.24 kB │ gzip: 108.40 kB
+
+✓ built in 75ms
