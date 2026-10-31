@@ -1,29 +1,40 @@
 import { useId, useState } from "react";
-import type { History } from "../shared/types.ts";
+import type { DailyStatus, History } from "../shared/types.ts";
 import { labels } from "../shared/types.ts";
 
 export function HistoryBars({
   name,
   history,
+  onSelect,
 }: {
   name: string;
   history?: History;
+  onSelect: (day: DailyStatus) => void;
 }) {
   const [index, setIndex] = useState(89);
   const [active, setActive] = useState(false);
   const pattern = useId().replace(/:/g, "");
   const day = history?.days[index];
+  const checks = day?.samples
+    ? `${day.samples} local check${day.samples === 1 ? "" : "s"} recorded`
+    : "No local checks recorded";
+  const reports = day?.reports
+    ? `${day.reports} provider report${day.reports === 1 ? "" : "s"}`
+    : "No provider reports recorded";
+  const coverage = day?.complete
+    ? "Near-complete local coverage"
+    : "Incomplete local coverage; health between checks is unknown";
   const description = day
-    ? `${day.date}: ${labels[day.state]}. ${day.samples} recorded checks. ${day.complete ? "Continuous coverage" : "Incomplete coverage"}.`
-    : "Loading recorded history";
+    ? `${day.date} (UTC): ${labels[day.state]}. ${checks}. ${reports}. ${coverage}.`
+    : "Recorded history is unavailable";
   const select = (element: HTMLElement, x: number) => {
     const rect = element.getBoundingClientRect();
-    setIndex(
-      Math.max(
-        0,
-        Math.min(89, Math.floor(((x - rect.left) / rect.width) * 90)),
-      ),
+    const selected = Math.max(
+      0,
+      Math.min(89, Math.floor(((x - rect.left) / rect.width) * 90)),
     );
+    setIndex(selected);
+    return selected;
   };
   return (
     <div className="history">
@@ -31,14 +42,16 @@ export function HistoryBars({
         className="bars"
         role="slider"
         tabIndex={0}
-        aria-label={`${name} daily observations. Use arrow keys to choose a day.`}
+        aria-label={`${name} daily observations. Use arrow keys to choose a day, then Enter to open reports.`}
         aria-valuemin={1}
         aria-valuemax={90}
         aria-valuenow={index + 1}
         aria-valuetext={description}
         onFocus={() => setActive(true)}
         onBlur={() => setActive(false)}
-        onPointerLeave={() => setActive(false)}
+        onPointerLeave={(event) =>
+          setActive(event.currentTarget === document.activeElement)
+        }
         onPointerMove={(e) => {
           select(e.currentTarget, e.clientX);
           setActive(true);
@@ -47,7 +60,16 @@ export function HistoryBars({
           select(e.currentTarget, e.clientX);
           e.currentTarget.focus();
         }}
+        onClick={(e) => {
+          const selected = history?.days[select(e.currentTarget, e.clientX)];
+          if (selected) onSelect(selected);
+        }}
         onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (day) onSelect(day);
+            return;
+          }
           const next =
             e.key === "ArrowLeft" || e.key === "ArrowDown"
               ? index - 1
@@ -105,11 +127,13 @@ export function HistoryBars({
       <div className="history-labels">
         <span>90 days ago</span>
         <span className="history-description">
-          {active
-            ? description
-            : history?.days.some((d) => d.samples)
-              ? "Recorded observations · gaps hatched"
-              : "History builds as this instance runs"}
+          {!history
+            ? "Recorded history is unavailable"
+            : active
+              ? description
+              : history.days.some((d) => d.samples || d.reports)
+                ? "Local checks and provider reports · coverage may be incomplete"
+                : "No local checks or provider reports recorded yet"}
         </span>
         <span>Today</span>
       </div>

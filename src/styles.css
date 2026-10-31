@@ -237,15 +237,10 @@ h1 {
   margin-bottom: 38px;
 }
 .summary-icon {
-  width: 42px;
-  height: 42px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--state);
-  border: 1px solid var(--line);
-  background: var(--soft);
-  font-size: 23px;
+  background: var(--state);
   flex-shrink: 0;
 }
 .summary h2 {
@@ -455,15 +450,31 @@ h1 {
   font-size: 12px;
   font-weight: 550;
   white-space: nowrap;
-  padding: 5px 8px;
-  border-radius: 6px;
-  background: var(--soft);
+  padding: 5px 0;
   color: var(--state);
+}
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  background: currentColor;
+  border-radius: 50%;
+}
+.status-button {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+.status-button:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--muted);
 }
 .bars {
   width: 100%;
   height: 32px;
-  cursor: crosshair;
+  cursor: pointer;
   border-radius: 3px;
 }
 .bars svg {
@@ -1126,14 +1137,9 @@ pre {
     flex: 1;
     min-width: 0;
   }
-  .summary-icon {
-    width: 34px;
-    height: 34px;
-    font-size: 19px;
-  }
   .refresh-status {
-    width: calc(100% - 46px);
-    margin-left: 46px;
+    width: calc(100% - 20px);
+    margin-left: 20px;
     text-align: left;
     display: flex;
     justify-content: space-between;
@@ -1239,9 +1245,6 @@ pre {
   }
   .component-row .badge {
     font-size: 9px;
-  }
-  .component-row .badge > span {
-    display: none;
   }
   .report {
     padding: 18px;

@@ -1,7 +1,11 @@
 import type { Appearance } from "./appearance.ts";
 
 export type Health =
-  "operational" | "degraded" | "outage" | "maintenance" | "unknown";
+  | "operational"
+  | "degraded"
+  | "outage"
+  | "maintenance"
+  | "unknown";
 export type Component = {
   id: string;
   name: string;
@@ -51,6 +55,7 @@ export type DailyStatus = {
   date: string;
   state: Health;
   samples: number;
+  reports: number;
   complete: boolean;
 };
 export type History = {
@@ -94,11 +99,4 @@ export const labels: Record<Health, string> = {
   outage: "Outage",
   maintenance: "Maintenance",
   unknown: "Unknown",
-};
-export const symbols: Record<Health, string> = {
-  operational: "✓",
-  degraded: "!",
-  outage: "×",
-  maintenance: "◇",
-  unknown: "?",
 };
