@@ -93,11 +93,11 @@ test("Databricks component scope saves, reloads, and shares without affecting an
   await expect(
     recipient.getByRole("heading", { name: "My team board" }),
   ).toBeVisible();
-  await recipient.getByRole("button", { name: "Board settings" }).click();
-  await recipient.getByLabel("Board name").fill("Recipient copy");
-  await expect(
-    page.getByRole("heading", { name: "My status board" }),
-  ).toBeVisible();
+  await recipient.getByRole("button", { name: "Databricks (AWS)" }).click();
+  await recipient.getByRole("button", { name: "Remove service" }).click();
+  await expect(recipient.locator(".service")).toHaveCount(0);
+  await expect(page.locator(".service")).toHaveCount(1);
+  await expect(page.getByText("1 selected components")).toBeVisible();
   await recipient.close();
 });
 
@@ -429,4 +429,35 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
   await expect(
     page.getByRole("button", { name: "Set up your own", exact: true }),
   ).toBeFocused();
+});
+
+
+test("board names are optional in fresh boards, settings, imports and setup", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".service")).toHaveCount(1);
+  await expect(page.locator(".board-heading h2")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("unnamed-board.png"), fullPage: true });
+  await page.getByRole("button", { name: "Board settings" }).click();
+  await expect(page.getByLabel("Board name", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Saved in this browser.", { exact: false })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("board-settings.png") });
+  for (const name of ["My status board", "Team dashboard"]) {
+    await page.getByLabel("Import board").setInputFiles({
+      name: "board.json", mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({ ...defaultBoard(), name })),
+    });
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!).name)).toBe(name);
+    await page.keyboard.press("Escape");
+    await page.reload();
+    await expect(page.locator(".board-heading h2")).toHaveCount(name === "My status board" ? 0 : 1);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!).name)).toBe(name);
+    await page.getByRole("button", { name: "Board settings" }).click();
+  }
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Set up your own", exact: true }).click();
+  await page.getByLabel("Organisation or page name (optional)").fill("");
+  const prompt = await page.getByLabel("Setup prompt", { exact: true }).inputValue();
+  expect(JSON.parse(prompt.split("```json\n")[1].split("\n```")[0]).name).toBe("");
+  await expect(page.getByRole("button", { name: "Copy setup prompt", exact: true })).toBeEnabled();
 });
