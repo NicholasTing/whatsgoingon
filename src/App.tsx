@@ -589,7 +589,7 @@ export function App() {
                       <article className="service" key={monitor.id}>
                         <div className="service-heading">
                           <div className="service-identity">
-                            <ProviderLogo id={monitor.id} />
+                            <ProviderLogo id={monitor.id} custom={!!monitor.custom} />
                             <div>
                               <button
                                 className="service-name"

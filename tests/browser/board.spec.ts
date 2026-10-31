@@ -65,7 +65,7 @@ test("local logos render throughout the catalogue and themed boards with an acce
       { id: "claude", componentIds: [], group: "" },
       { id: "codex", componentIds: ["sql:au"], group: "" },
       {
-        id: "custom-example",
+        id: "github",
         componentIds: ["sql:au"],
         group: "",
         custom: {

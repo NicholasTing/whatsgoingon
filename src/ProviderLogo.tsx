@@ -19,11 +19,11 @@ const brands = new Set([
   "discord",
 ]);
 
-export function ProviderLogo({ id }: { id: string }) {
+export function ProviderLogo({ id, custom }: { id: string; custom?: boolean }) {
   const brand = id === "codex" ? "openai" : id;
   return (
     <span className="provider-logo" aria-hidden="true">
-      {brands.has(brand) ? (
+      {!custom && brands.has(brand) ? (
         <img src={`/logos/${brand}.svg`} width="24" height="24" alt="" />
       ) : (
         <Icon name="globe" size={24} />
