@@ -816,8 +816,8 @@ export function App() {
             <div>
               <h2 id="setup-title">Make it your team's status page</h2>
               <p className="small muted">
-                Take this board's services and colours with you. Copy a prompt
-                to set up your own instance with a coding agent.
+                Copy a prompt to audit your codebase, review its dependencies,
+                and start a dashboard with Claude and Codex included.
               </p>
             </div>
             <button className="primary" onClick={() => setModal("setup")}>

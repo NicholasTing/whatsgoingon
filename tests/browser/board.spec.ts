@@ -317,7 +317,7 @@ test("appearance and feedback are accessible in both themes and on mobile", asyn
   }
 });
 
-test("setup prompt copies the selected board without changing it or including unexpected credentials", async ({
+test("setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials", async ({
   page,
   context,
 }) => {
@@ -359,7 +359,9 @@ test("setup prompt copies the selected board without changing it or including un
   expect(prompt).toContain(
     "Docker setup. Start locally unless I supply a hosting destination.",
   );
-  expect(prompt).toContain("docs/persistence.md");
+  expect(prompt).toContain(
+    (await readFile("docs/setup-prompt.md", "utf8")).trim(),
+  );
   expect(prompt).not.toContain("never-copy-this-test-secret");
   await page
     .getByRole("button", { name: "Copy setup prompt", exact: true })

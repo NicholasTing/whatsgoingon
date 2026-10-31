@@ -18,10 +18,11 @@ export function SetupPanel({ board }: { board: Board }) {
 ## My setup preferences
 
 - Setup target: ${target === "docker" ? "Docker setup. Start locally unless I supply a hosting destination." : "Local preview."}
+- Audit target: the organisation repository open in this coding-agent session.
 - Brand reference: use the supplied board colours unless I provide a public reference.
-- Destination repository: use a local copy unless I name my own repository.
+- Dashboard destination: a separate sibling directory unless I name an existing dashboard checkout.
 
-## Board configuration
+## Starting board (extend with the agreed audit inventory)
 
 \`\`\`json
 ${JSON.stringify(configuration, null, 2)}
@@ -45,8 +46,9 @@ ${JSON.stringify(configuration, null, 2)}
     <>
       <div className="dialog-body setup-body">
         <p>
-          Choose your services and colours on the board first. This prompt
-          carries that setup into a coding agent such as Claude Code or Codex.
+          Run this prompt from your organisation's codebase. Your coding agent
+          audits its dependencies, reviews the monitoring list with you, then
+          starts a dashboard. Claude and Codex are included by default.
         </p>
         <div className="setup-fields">
           <label>
@@ -77,9 +79,9 @@ ${JSON.stringify(configuration, null, 2)}
           </div>
         </div>
         <p className="small muted">
-          Includes your services, component selections, groups, and colours.
-          Custom monitor URLs are included, so review the prompt before sharing
-          it. Your agent needs access to the source repository.
+          Your current board supplies starting services, component selections,
+          groups, and colours. The audit adds dependencies it finds. Custom
+          monitor URLs are included, so review the prompt before sharing it.
         </p>
         <div className="setup-field">
           <label htmlFor="setup-prompt">Setup prompt</label>
@@ -94,9 +96,9 @@ ${JSON.stringify(configuration, null, 2)}
           />
         </div>
         <p className="small muted">
-          Paste this into your coding agent in a workspace where you want the
-          project. Add your host or public brand reference after the prompt if
-          needed.
+          Open your organisation's repository in your coding agent before
+          pasting. The agent needs access to both that codebase and
+          whatsgoingon. The dashboard will run from a separate directory.
         </p>
         {message && (
           <p className="notice" role="status">

@@ -21,9 +21,13 @@ The frontend reloads while you edit it. Restart the development server after cha
 
 ## Set up your organisation's page
 
-Choose your services, components, and colours, then select **Set up your own** below the dashboard. Enter a page name, choose a local preview or Docker setup, and copy the generated prompt into your coding agent. It includes your board configuration and asks the agent to make it the default for new visitors in your copy. Existing browser boards stay separate.
+Select **Set up your own** below the dashboard, enter a page name, and choose a local preview or Docker setup. Copy the prompt into a coding-agent session opened in **your organisation's repository**. The agent audits application code, manifests, infrastructure, CI, and tool configuration before setting up the dashboard.
 
-You can also copy the [standalone setup prompt](docs/setup-prompt.md). Append your exported board JSON and any hosting or public brand details. Without those details, the prompt starts with the repository's default board and a local preview. The coding agent needs access to this repository; private repositories require GitHub access.
+The audit produces an inventory with file-and-line evidence, confidence, product/region scope, and proposed monitors. It includes Claude and Codex as setup defaults. Review the list with the agent, resolve uncertain scopes, and add or remove services. Your current board is a starting point; the final board also includes the agreed audit findings. Unsupported or private services remain visible as gaps.
+
+The agent then configures and starts the dashboard in a separate directory. It sets the agreed board as the default for new visitors and exports it for existing browsers. It monitors the dependencies it finds; it does not provision the organisation's infrastructure.
+
+You can also copy the [standalone setup prompt](docs/setup-prompt.md) and append your board JSON or hosting preferences. Without a starting board, it uses the audit findings, Claude, Codex, and a local preview. The agent needs access to both the organisation codebase and this repository; private repositories require GitHub access.
 
 Review custom monitor URLs before sharing the prompt. Keep credentials in your own environment. The prompt prepares an agent task; it does not run or deploy the app from your browser.
 
