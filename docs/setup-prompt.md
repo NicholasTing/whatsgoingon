@@ -47,7 +47,7 @@ Present one proposed monitoring list for review. Include discovered services, se
 
 ## 4. Configure and start the dashboard
 
-Work in the separate dashboard checkout. Read its README, package scripts, and `docs/persistence.md`. Use Node 24 or later and its lockfile. Merge the agreed monitors with the seed configuration, preserving selected components, groups, and colours. Validate with `readBoard` in `shared/board.ts` and check component IDs against live feeds. If the inventory exceeds board limits, agree how to split it into boards; never silently truncate it.
+Work in the separate dashboard checkout. Read its README, package scripts, and `docs/persistence.md`. Use the project's required runtime and lockfile. Use the reviewed inventory as the final monitor list, including my requested removals. Preserve the seed's component selections and groups for retained services, and its appearance. Validate with `readBoard` in `shared/board.ts` and check component IDs against live feeds. If the inventory exceeds board limits, agree how to split it into boards; never silently truncate it.
 
 Make the agreed board the default for new visitors in my copy. Keep existing saved boards and shared links working. Export `whatsgoingon-board.json` for an existing browser. Use the board name for the page heading and document title, retain contrast checks and the MIT licence, and update source/feedback links if I provide my own repository. Keep browser notifications off until enabled by the visitor.
 
