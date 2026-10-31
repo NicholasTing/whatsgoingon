@@ -479,10 +479,11 @@ test("compact navigation keeps setup and feedback accessible on desktop and mobi
 
 
 test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
+  const at = new Date().toISOString();
   const reports: Incident[] = (["outage", "degraded"] as const).map(state => ({
     id: state, title: `${state} incident`, status: "investigating", state,
-    active: true, maintenance: false, startedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(), endedAt: null, componentIds: [],
+    active: true, maintenance: false, startedAt: at,
+    updatedAt: at, endedAt: null, componentIds: [],
     body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
   }));
   await mockFeeds(page, reports);
