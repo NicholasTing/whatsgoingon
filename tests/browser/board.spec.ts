@@ -5,6 +5,7 @@ import type { Incident } from "../../shared/types.ts";
 import type { Page } from "@playwright/test";
 import { defaultBoard, shareBoard } from "../../shared/board.ts";
 import { presets } from "../../shared/appearance.ts";
+import { providers } from "../../server/catalog.ts";
 
 async function mockFeeds(page: Page, incidents: Incident[] = []) {
   await page.route("**/api/status/**", async (route) => {
@@ -56,6 +57,140 @@ async function mockFeeds(page: Page, incidents: Incident[] = []) {
     }),
   );
 }
+
+test("local logos render throughout the catalogue and themed boards with an accessible custom fallback", async ({
+  page,
+}, testInfo) => {
+  const board = {
+    ...defaultBoard(),
+    monitors: [
+      { id: "databricks", componentIds: ["sql:au"], group: "" },
+      { id: "claude", componentIds: [], group: "" },
+      { id: "codex", componentIds: ["sql:au"], group: "" },
+      {
+        id: "github",
+        componentIds: ["sql:au"],
+        group: "",
+        custom: {
+          name: "Custom API",
+          url: "https://example.com",
+          kind: "http",
+        },
+      },
+    ],
+  };
+  await page.addInitScript(
+    (value) =>
+      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(value)),
+    board,
+  );
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".service")).toHaveCount(4);
+  await expect(page.locator(".brand img")).toHaveAttribute(
+    "src",
+    "/favicon.svg",
+  );
+  await expect(page.locator(".service .provider-logo img")).toHaveCount(3);
+  await expect(
+    page
+      .locator(".service")
+      .filter({ hasText: "Custom API" })
+      .locator(".provider-logo svg"),
+  ).toBeVisible();
+
+  for (const preset of ["Slate", "Midnight"]) {
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    await page.getByRole("button", { name: preset }).click();
+    await page.getByRole("button", { name: "Apply appearance" }).click();
+    await page.getByRole("button", { name: "Dismiss message" }).click();
+    await expect(
+      page.getByRole("button", { name: "Databricks (AWS)", exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator("img")
+          .evaluateAll((images) =>
+            images.every(
+              (image) =>
+                image instanceof HTMLImageElement &&
+                image.complete &&
+                image.naturalWidth > 0,
+            ),
+          ),
+      )
+      .toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`logos-${preset.toLowerCase()}-desktop.png`),
+      fullPage: true,
+    });
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`logos-${preset.toLowerCase()}-${width}.png`),
+        fullPage: true,
+      });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+
+  await page.getByRole("button", { name: "Add services", exact: true }).click();
+  await expect(page.locator(".catalogue-row .provider-logo img")).toHaveCount(
+    providers.length,
+  );
+  await expect
+    .poll(() =>
+      page
+        .locator(".catalogue-row img")
+        .evaluateAll((images) =>
+          images.every(
+            (image) =>
+              image instanceof HTMLImageElement &&
+              image.complete &&
+              image.naturalWidth > 0 &&
+              new URL(image.src).origin === location.origin,
+          ),
+        ),
+    )
+    .toBe(true);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("logos-catalogue-desktop.png"),
+  });
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("logos-catalogue-mobile.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Add services", exact: true }),
+  ).toBeFocused();
+});
 
 test("Databricks component scope saves, reloads, and shares without affecting another browser", async ({
   page,
@@ -190,6 +325,14 @@ test("overview and component selection pass automated accessibility checks and f
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    await page.getByRole("button", { name: "Databricks (AWS)", exact: true }).click();
+    await expect(page.locator(".component-row .badge").first()).toBeVisible();
+    await expect(page.locator(".component-row .badge .icon")).toHaveCount(0);
+    expect(await page.locator(".component-row .badge").first().evaluate(
+      (badge) => getComputedStyle(badge, "::before").width,
+    )).toBe("6px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.keyboard.press("Escape");
   }
 });
 

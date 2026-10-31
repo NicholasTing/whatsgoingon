@@ -25,6 +25,8 @@ import {
 import { HistoryBars } from "./HistoryBars.tsx";
 import { AppearancePanel } from "./AppearancePanel.tsx";
 import { SetupPanel } from "./SetupPanel.tsx";
+import { Icon } from "./Icon.tsx";
+import { ProviderLogo } from "./ProviderLogo.tsx";
 import { appearanceStyle } from "../shared/appearance.ts";
 
 const STORAGE = "whatsgoingon.board.v1";
@@ -162,7 +164,7 @@ function Dialog({
           onClick={close}
           aria-label="Close dialog"
         >
-          ×
+          <Icon name="close" size={20} />
         </button>
       </div>
       {children}
@@ -479,16 +481,7 @@ export function App() {
       </a>
       <header className="site-header">
         <a className="brand" href="/" aria-label="whatsgoingon home">
-          <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
-            <rect width="32" height="32" rx="9" fill="currentColor" />
-            <path
-              d="M5 18h5l4-9 5 15 3-6h5"
-              stroke="var(--on-accent)"
-              strokeWidth="2"
-              fill="none"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <img src="/favicon.svg" width="34" height="34" alt="" />
           <span>
             whatsgoingon<span className="brand-dot">.</span>
           </span>
@@ -503,28 +496,17 @@ export function App() {
                 className="secondary"
                 onClick={() => setModal("appearance")}
               >
-                <svg
-                  viewBox="0 0 20 20"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  aria-hidden="true"
-                >
-                  <circle cx="10" cy="10" r="7" />
-                  <path d="M10 3v14M3 10h7" />
-                </svg>
+                <Icon name="appearance" />
                 Appearance
               </button>
               <button
                 className="secondary"
                 onClick={() => setModal("settings")}
               >
-                Board settings
+                <Icon name="settings" /> Board settings
               </button>
               <button className="primary" onClick={() => setModal("add")}>
-                ＋ Add services
+                <Icon name="plus" /> Add services
               </button>
             </div>
           </section>
@@ -537,7 +519,7 @@ export function App() {
               aria-label="Dismiss message"
               onClick={() => setMessage("")}
             >
-              ×
+              <Icon name="close" />
             </button>
           </div>
         )}
@@ -576,7 +558,7 @@ export function App() {
               onClick={() => setRefresh((n) => n + 1)}
               disabled={loading}
             >
-              Refresh now
+              <Icon name="refresh" size={13} /> Refresh now
             </button>
           </div>
         </section>
@@ -589,13 +571,13 @@ export function App() {
           </div>
           <div className="board-actions">
             <button className="text-button" onClick={share}>
-              ↗ Share board
+              <Icon name="share" /> Share board
             </button>
             <button
               className="text-button"
               onClick={() => setModal("integrations")}
             >
-              API & alerts
+              <Icon name="integrations" /> API & alerts
             </button>
           </div>
         </div>
@@ -621,7 +603,7 @@ export function App() {
           </nav>
           <label className="search">
             <span className="sr-only">Search {view}</span>
-            <span aria-hidden="true">⌕</span>
+            <Icon name="search" />
             <input
               placeholder={
                 view === "overview" ? "Find a service…" : "Search incidents…"
@@ -653,26 +635,29 @@ export function App() {
                     .map(({ monitor, snapshot, name, failure, checking }) => (
                       <article className="service" key={monitor.id}>
                         <div className="service-heading">
-                          <div>
-                            <button
-                              className="service-name"
-                              onClick={() => setEditing(monitor)}
-                            >
-                              {name}
-                              <span className="edit-hint" aria-hidden="true">
-                                ↗
-                              </span>
-                            </button>
-                            <p className="service-scope">
-                              {monitor.componentIds.length
-                                ? `${monitor.componentIds.length} selected components`
-                                : monitor.custom?.kind === "http"
-                                  ? "HTTPS endpoint check"
-                                  : "All products and regions"}
-                              {snapshot?.latencyMs !== undefined
-                                ? ` · ${snapshot.latencyMs} ms`
-                                : ""}
-                            </p>
+                          <div className="service-identity">
+                            <ProviderLogo id={monitor.id} custom={!!monitor.custom} />
+                            <div>
+                              <button
+                                className="service-name"
+                                onClick={() => setEditing(monitor)}
+                              >
+                                {name}
+                                <span className="edit-hint" aria-hidden="true">
+                                  <Icon name="external" size={13} />
+                                </span>
+                              </button>
+                              <p className="service-scope">
+                                {monitor.componentIds.length
+                                  ? `${monitor.componentIds.length} selected components`
+                                  : monitor.custom?.kind === "http"
+                                    ? "HTTPS endpoint check"
+                                    : "All products and regions"}
+                                {snapshot?.latencyMs !== undefined
+                                  ? ` · ${snapshot.latencyMs} ms`
+                                  : ""}
+                              </p>
+                            </div>
                           </div>
                           <button
                             className="status-button"
@@ -715,12 +700,15 @@ export function App() {
                                 })
                               }
                             >
-                              <span aria-hidden="true">
-                                {i.maintenance ? "◇" : "!"}
-                              </span>
+                              <Icon
+                                name={
+                                  i.maintenance ? "maintenance" : "degraded"
+                                }
+                              />
                               <span>{i.title}</span>
                               <span className="small">
-                                {i.status.replaceAll("_", " ")} ↗
+                                {i.status.replaceAll("_", " ")}{" "}
+                                <Icon name="external" size={13} />
                               </span>
                             </button>
                           ))}
@@ -731,7 +719,7 @@ export function App() {
               {!visible.length && (
                 <div className="empty">
                   <span className="empty-symbol" aria-hidden="true">
-                    ◎
+                    <Icon name="empty" size={32} />
                   </span>
                   <h3>
                     {items.length
@@ -855,16 +843,26 @@ export function App() {
               <button className="text-button" onClick={() => setModal("setup")}>
                 Set up your own
               </button>
-              <a href={`${GITHUB}/issues/new?template=feature-request.yml`} target="_blank" rel="noreferrer">
-                Request a feature ↗
+              <a
+                href={`${GITHUB}/issues/new?template=feature-request.yml`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Request a feature <Icon name="external" size={12} />
               </a>
-              <a href={`${GITHUB}/issues/new?template=bug-report.yml`} target="_blank" rel="noreferrer">
-                Report a bug ↗
+              <a
+                href={`${GITHUB}/issues/new?template=bug-report.yml`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Report a bug <Icon name="external" size={12} />
               </a>
               <a href={`${GITHUB}/issues`} target="_blank" rel="noreferrer">
-                Browse issues ↗
+                Browse issues <Icon name="external" size={12} />
               </a>
-              <a href={GITHUB} target="_blank" rel="noreferrer">Source ↗</a>
+              <a href={GITHUB} target="_blank" rel="noreferrer">
+                Source <Icon name="external" size={12} />
+              </a>
             </nav>
           )}
           <span>Times in your timezone · daily history in UTC</span>
@@ -988,7 +986,7 @@ export function App() {
                   Started {when(selectedIncident.startedAt)}
                 </p>
                 <a href={selectedIncident.url} target="_blank" rel="noreferrer">
-                  View the provider’s incident ↗
+                  View the provider’s incident <Icon name="external" />
                 </a>
                 <div className="timeline">
                   {selectedIncident.updates.length ? (
@@ -1177,7 +1175,7 @@ function AddServices({
         </p>
         <label className="search full">
           <span className="sr-only">Search provider catalogue</span>
-          <span aria-hidden="true">⌕</span>
+          <Icon name="search" />
           <input
             autoFocus
             value={query}
@@ -1196,16 +1194,25 @@ function AddServices({
               const added = monitors.some((m) => m.id === provider.id);
               return (
                 <div className="catalogue-row" key={provider.id}>
-                  <span>
-                    <strong>{provider.name}</strong>
-                    <small>{provider.category}</small>
-                  </span>
+                  <div className="service-identity">
+                    <ProviderLogo id={provider.id} />
+                    <span>
+                      <strong>{provider.name}</strong>
+                      <small>{provider.category}</small>
+                    </span>
+                  </div>
                   <button
                     className={added ? "text-button" : "secondary"}
                     disabled={added || monitors.length >= 40}
                     onClick={() => add(provider.id)}
                   >
-                    {added ? "✓ Added" : "Add"}
+                    {added ? (
+                      <>
+                        <Icon name="check" /> Added
+                      </>
+                    ) : (
+                      "Add"
+                    )}
                   </button>
                 </div>
               );
@@ -1222,7 +1229,7 @@ function AddServices({
           onClick={() => setCustom((value) => !value)}
           aria-expanded={custom}
         >
-          ＋ Add a custom status page or endpoint
+          <Icon name="plus" /> Add a custom status page or endpoint
         </button>
         {custom && (
           <form onSubmit={submit} className="custom-form">
@@ -1350,7 +1357,7 @@ function EditMonitor({
           <Badge state={snapshot?.state ?? "unknown"} />
           {all?.statusUrl && (
             <a href={all.statusUrl} target="_blank" rel="noreferrer">
-              Provider status ↗
+              Provider status <Icon name="external" />
             </a>
           )}
         </div>
