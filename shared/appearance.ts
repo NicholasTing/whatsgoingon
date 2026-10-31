@@ -65,7 +65,7 @@ export const presets: { name: string; appearance: Appearance }[] = [
     },
   },
 ];
-export const defaultAppearance = presets[0].appearance;
+export const defaultAppearance = presets[2].appearance;
 export const hexColour = /^#[0-9a-f]{6}$/i;
 
 export function contrast(a: string, b: string): number {

@@ -235,7 +235,7 @@ test("appearance validates colours, persists, exports, imports, and shares", asy
   await page.getByRole("button", { name: "Apply appearance" }).click();
   await expect(page.locator(".app-shell")).toHaveCSS(
     "background-color",
-    "rgb(245, 246, 248)",
+    "rgb(16, 21, 30)",
   );
   await page.getByRole("button", { name: "Board settings" }).click();
   await page.getByLabel("Import board").setInputFiles({
@@ -429,4 +429,28 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
   await expect(
     page.getByRole("button", { name: "Set up your own", exact: true }),
   ).toBeFocused();
+});
+
+
+test("new boards start dark with readable status labels and matching previews", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(16, 21, 30)");
+  await page.getByRole("button", { name: "Add services" }).first().click();
+  for (const name of ["Claude", "Codex"]) {
+    await page.locator(".catalogue-row").filter({ hasText: name })
+      .getByRole("button", { name: "Add", exact: true }).click();
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".service-heading .badge")).toHaveText(["Outage", "Outage", "Outage"]);
+  await page.getByRole("button", { name: "Dismiss message" }).click();
+  await page.screenshot({ path: testInfo.outputPath("dark-dashboard.png"), fullPage: true });
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("dark-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+  await expect(page.locator(".preview-statuses .badge")).toHaveText(["Operational", "Degraded", "Outage", "Maintenance"]);
+  expect(await page.locator(".preview-statuses .badge").first().evaluate(el => getComputedStyle(el, "::before").width)).toBe("6px");
+  await page.screenshot({ path: testInfo.outputPath("dark-preview.png") });
 });

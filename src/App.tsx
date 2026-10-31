@@ -10,7 +10,7 @@ import type {
   Provider,
   Snapshot,
 } from "../shared/types.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
 import {
   boardFromHash,
   changesBetween,
@@ -89,7 +89,6 @@ function when(value: string | null): string {
 function Badge({ state, text }: { state: Health; text?: string }) {
   return (
     <span className={`badge ${state}`}>
-      <span aria-hidden="true">{symbols[state]}</span>
       {text ?? labels[state]}
     </span>
   );
@@ -505,9 +504,7 @@ export function App() {
           </div>
         )}
         <section className={`summary ${state}`} aria-label="Board summary">
-          <div className="summary-icon" aria-hidden="true">
-            {symbols[state]}
-          </div>
+          <div className="summary-icon" aria-hidden="true" />
           <div>
             <h2>
               {!items.length
