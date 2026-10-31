@@ -15,9 +15,18 @@ export function HistoryBars({
   const [active, setActive] = useState(false);
   const pattern = useId().replace(/:/g, "");
   const day = history?.days[index];
+  const checks = day?.samples
+    ? `${day.samples} local check${day.samples === 1 ? "" : "s"} recorded`
+    : "No local checks recorded";
+  const reports = day?.reports
+    ? `${day.reports} provider report${day.reports === 1 ? "" : "s"}`
+    : "No provider reports recorded";
+  const coverage = day?.complete
+    ? "Near-complete local coverage"
+    : "Incomplete local coverage; health between checks is unknown";
   const description = day
-    ? `${day.date}: ${labels[day.state]}. ${day.samples} recorded checks. ${day.complete ? "Continuous coverage" : "Incomplete coverage"}.`
-    : "Loading recorded history";
+    ? `${day.date} (UTC): ${labels[day.state]}. ${checks}. ${reports}. ${coverage}.`
+    : "Recorded history is unavailable";
   const select = (element: HTMLElement, x: number) => {
     const rect = element.getBoundingClientRect();
     const selected = Math.max(
@@ -40,7 +49,9 @@ export function HistoryBars({
         aria-valuetext={description}
         onFocus={() => setActive(true)}
         onBlur={() => setActive(false)}
-        onPointerLeave={() => setActive(false)}
+        onPointerLeave={(event) =>
+          setActive(event.currentTarget === document.activeElement)
+        }
         onPointerMove={(e) => {
           select(e.currentTarget, e.clientX);
           setActive(true);
@@ -116,11 +127,13 @@ export function HistoryBars({
       <div className="history-labels">
         <span>90 days ago</span>
         <span className="history-description">
-          {active
-            ? description
-            : history?.days.some((d) => d.samples)
-              ? "Recorded observations · gaps hatched"
-              : "History builds as this instance runs"}
+          {!history
+            ? "Recorded history is unavailable"
+            : active
+              ? description
+              : history.days.some((d) => d.samples || d.reports)
+                ? "Local checks and provider reports · coverage may be incomplete"
+                : "No local checks or provider reports recorded yet"}
         </span>
         <span>Today</span>
       </div>

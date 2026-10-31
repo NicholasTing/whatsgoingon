@@ -549,3 +549,59 @@ test("unnamed boards load and share while existing names remain intact", () => {
   }
   assert.throws(() => readBoard({ ...unnamed, name: "x".repeat(81) }));
 });
+
+test("empty history and incident-only history distinguish local checks from reports", () => {
+  const store = new Store(":memory:");
+  const monitor = { ...defaultBoard().monitors[0], componentIds: ["sql:au"] };
+  try {
+    const empty = store.history("databricks", monitor, Date.parse(at));
+    assert.ok(
+      empty.days.every(
+        (day) =>
+          day.state === "unknown" &&
+          day.samples === 0 &&
+          day.reports === 0 &&
+          !day.complete,
+      ),
+    );
+    store.save(
+      snapshot({
+        incidents: [
+          {
+            ...incident,
+            componentIds: ["sql:au"],
+            active: false,
+            status: "resolved",
+            startedAt: "2026-10-30T10:00:00Z",
+            endedAt: "2026-10-30T11:00:00Z",
+          },
+        ],
+      }),
+    );
+    const history = store.history(
+      "databricks",
+      monitor,
+      Date.parse(at) + 60_000,
+    );
+    assert.deepEqual(history.days.at(-2), {
+      date: "2026-10-30",
+      state: "outage",
+      samples: 0,
+      reports: 1,
+      complete: false,
+    });
+    assert.equal(history.days.at(-3)?.state, "unknown");
+    assert.equal(history.days.at(-1)?.samples, 1);
+    assert.equal(history.days.at(-1)?.reports, 0);
+    assert.equal(history.days.at(-1)?.complete, false);
+    const unrelated = store.history(
+      "databricks",
+      { ...monitor, componentIds: ["sql:us"] },
+      Date.parse(at),
+    );
+    assert.equal(unrelated.days.at(-2)?.reports, 0);
+    assert.equal(unrelated.days.at(-2)?.state, "unknown");
+  } finally {
+    store.close();
+  }
+});

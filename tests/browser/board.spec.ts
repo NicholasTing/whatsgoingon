@@ -46,6 +46,7 @@ async function mockFeeds(page: Page, incidents: Incident[] = []) {
             .slice(0, 10),
           state: "unknown",
           samples: 0,
+          reports: 0,
           complete: false,
         })),
         observedSince: null,
@@ -653,6 +654,101 @@ test("board names are optional in fresh boards, settings, imports and setup", as
 });
 
 
+test("unavailable history is distinct from a returned history with no records", async ({ page }) => {
+  await mockFeeds(page);
+  let unavailable = true;
+  await page.route("**/api/history/**", (route) =>
+    unavailable ? route.abort() : route.fallback(),
+  );
+  await page.goto("/");
+  await expect(page.locator(".history-description")).toHaveText("Recorded history is unavailable");
+  await page.getByRole("slider").focus();
+  await expect(page.getByRole("slider")).toHaveAttribute("aria-valuetext", "Recorded history is unavailable");
+  unavailable = false;
+  await page.reload();
+  await expect(page.locator(".history-description")).toHaveText("No local checks or provider reports recorded yet");
+});
+
+test("history explains missing local checks separately from provider reports on hover and focus", async ({
+  page,
+}, testInfo) => {
+  await mockFeeds(page);
+  await page.route("**/api/history/**", (route) =>
+    route.fulfill({
+      json: {
+        days: Array.from({ length: 90 }, (_, i) => ({
+          date: new Date(Date.now() - (89 - i) * 86400000)
+            .toISOString()
+            .slice(0, 10),
+          state: i === 88 ? "outage" : i === 87 ? "operational" : "unknown",
+          samples: i === 87 ? 1 : i === 86 ? 250 : 0,
+          reports: i === 88 ? 2 : 0,
+          complete: i === 86,
+        })),
+        observedSince: null,
+        source: "observations",
+        warning: "Incomplete history",
+      },
+    }),
+  );
+  await page.goto("/");
+  const bars = page.getByRole("slider");
+  await bars.focus();
+  await page.keyboard.press("Home");
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /Unknown.*No local checks recorded.*No provider reports recorded.*Incomplete local coverage/,
+  );
+  await expect(page.locator(".history-description")).toContainText(
+    "health between checks is unknown",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("missing-history.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /Outage.*No local checks recorded.*2 provider reports/,
+  );
+  await expect(page.locator(".history-description")).not.toContainText(
+    "0 recorded checks",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("incident-only-history.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("ArrowLeft");
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /1 local check recorded.*No provider reports recorded.*Incomplete local coverage/,
+  );
+  await expect(bars.locator("rect.bar").nth(87)).toHaveAttribute("fill", /url/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(bars).toHaveAttribute("aria-valuetext", /Unknown.*Near-complete local coverage/);
+  await expect(bars.locator("rect.bar").nth(86)).toHaveAttribute("fill", /url/);
+  await expect(page.getByText(/Hatching indicates an unknown state or incomplete local coverage/)).toBeVisible();
+  const box = (await bars.boundingBox())!;
+  await bars.hover({ position: { x: (box.width * 88.5) / 90, y: 16 } });
+  await expect(page.locator(".history-description")).toContainText(
+    "2 provider reports",
+  );
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".history-description")).toContainText("2 provider reports");
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("history-mobile.png"),
+    fullPage: true,
+  });
+});
+
+
 test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({ page }, testInfo) => {
   await mockFeeds(page);
   await page.goto("/");
@@ -768,13 +864,16 @@ test("incident lifecycle badges identify impact without colour", async ({ page }
   reports.push({
     ...reports[0], id: "scheduled", title: "Scheduled maintenance", status: "scheduled",
     state: "maintenance", maintenance: true, active: false,
+  }, {
+    ...reports[0], id: "completed", title: "Completed maintenance", status: "completed",
+    state: "maintenance", maintenance: true, active: false, endedAt: at,
   });
   await mockFeeds(page, reports);
   await page.goto("/");
   await page.getByRole("button", { name: "Incidents (6)", exact: true }).click();
-  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded", "Maintenance · scheduled"]);
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded", "Maintenance · scheduled", "Operational · completed"]);
   await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
-  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"], ["Scheduled maintenance", "Maintenance · scheduled"]]) {
+  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"], ["Scheduled maintenance", "Maintenance · scheduled"], ["Completed maintenance", "Operational · completed"]]) {
     await page.getByRole("button", { name: new RegExp(title) }).click();
     await expect(page.getByRole("dialog").locator(".badge")).toHaveText(label);
     await page.keyboard.press("Escape");
