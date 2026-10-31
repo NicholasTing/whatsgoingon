@@ -78,6 +78,7 @@ Review custom monitor URLs before sharing the prompt. Keep credentials in your o
 - Search across configured services, with official status-page links, custom Statuspage-compatible pages, and public HTTPS endpoint checks. Endpoint checks include response time, optional expected text, and TLS certificate expiry.
 - Server-configured groups, share links, and iframe embeds. Every visitor uses the same configured services.
 - Dark appearance by default, with source-configured colours validated for contrast.
+- The incident filter follows the board theme. Open it, then Tab to the selected option and use arrow keys to switch reports; Enter or Escape closes it.
 - Daily observations and retained incident reports in SQLite. Select a history day (click, or arrow keys then Enter/Space) or current status to inspect related reports and open the official incident. Reports follow your selected components and UTC dates. Missing reports and history remain explicit.
 - Background alerts configured by the server owner through generic webhooks, Slack, Discord, Teams workflows, or PagerDuty.
 - A read-only JSON API, incident RSS feed, and embeddable status badges.

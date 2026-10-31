@@ -364,15 +364,82 @@ h1 {
   letter-spacing: 0.8px;
   gap: 15px;
 }
-.list-meta select {
-  padding: 5px 8px;
-}
-.list-meta label {
+.list-meta > label,
+.incident-filter-field {
   display: flex;
   align-items: center;
   gap: 9px;
   font-size: 12px;
   letter-spacing: 0;
+}
+.incident-filter {
+  position: relative;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.incident-filter-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 165px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--control);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+}
+.filter-chevron {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.incident-filter-trigger[aria-expanded="true"] .filter-chevron {
+  transform: translateY(2px) rotate(225deg);
+}
+.incident-filter-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 2;
+  min-width: 100%;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid var(--control);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #00000026;
+}
+.incident-filter-options label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 9px;
+  border-radius: 5px;
+  font-size: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.incident-filter-trigger:hover,
+.incident-filter-options label:hover,
+.incident-filter-options label:has(:checked) {
+  background: var(--soft);
+}
+.incident-filter-options label:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.incident-filter-options .icon {
+  color: var(--accent);
+  visibility: hidden;
+}
+.incident-filter-options :checked + .icon {
+  visibility: visible;
 }
 .check {
   display: flex;
@@ -934,7 +1001,7 @@ pre {
     font-size: 9px;
     letter-spacing: 0.3px;
   }
-  .list-meta label {
+  .list-meta > label {
     font-size: 11px;
   }
   .service {

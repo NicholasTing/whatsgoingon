@@ -80,6 +80,95 @@ function Badge({
     </span>
   );
 }
+const incidentFilters = [
+  ["all", "All reports"],
+  ["active", "Active incidents"],
+  ["maintenance", "Maintenance"],
+  ["resolved", "Past incidents"],
+];
+function IncidentFilter({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const label = incidentFilters.find(([id]) => id === value)![1];
+  function close() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+  useEffect(() => {
+    function dismiss(event: PointerEvent) {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, []);
+  return (
+    <div
+      className="incident-filter"
+      ref={ref}
+      onBlur={(event) => {
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (
+          open &&
+          (event.key === "Escape" ||
+            (event.key === "Enter" && event.target !== trigger.current))
+        ) {
+          event.preventDefault();
+          close();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="incident-filter-trigger"
+        ref={trigger}
+        aria-label={`Filter incidents: ${label}`}
+        aria-expanded={open}
+        aria-controls="incident-filter-options"
+        onClick={() => setOpen(!open)}
+      >
+        {label}
+        <span className="filter-chevron" aria-hidden="true" />
+      </button>
+      <fieldset
+        id="incident-filter-options"
+        className="incident-filter-options"
+        aria-label="Filter incidents"
+        hidden={!open}
+      >
+        {incidentFilters.map(([id, text]) => (
+          <label key={id}>
+            <input
+              className="sr-only"
+              type="radio"
+              name="incident-filter"
+              value={id}
+              checked={value === id}
+              onChange={() => onChange(id)}
+              onClick={(event) => {
+                if (event.detail > 0) close();
+              }}
+            />
+            <Icon name="check" />
+            {text}
+          </label>
+        ))}
+      </fieldset>
+    </div>
+  );
+}
 function Dialog({
   title,
   close,
@@ -687,19 +776,13 @@ function Dashboard({ board, catalog }: { board: Board; catalog: Catalogue[] }) {
         {view === "incidents" && (
           <>
             <div className="list-meta">
-              <label>
-                Show{" "}
-                <select
-                  aria-label="Filter incidents"
+              <div className="incident-filter-field">
+                <span>Show</span>
+                <IncidentFilter
                   value={incidentFilter}
-                  onChange={(e) => setIncidentFilter(e.target.value)}
-                >
-                  <option value="all">All reports</option>
-                  <option value="active">Active incidents</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="resolved">Past incidents</option>
-                </select>
-              </label>
+                  onChange={setIncidentFilter}
+                />
+              </div>
               <span>{shownIncidents.length} REPORTS</span>
             </div>
             <div className="report-list">

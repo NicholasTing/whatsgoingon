@@ -456,6 +456,131 @@ function report(overrides: Partial<Incident>): Incident {
   };
 }
 
+test("incident filter supports pointer, keyboard, themes and narrow screens", async ({
+  page,
+}, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-10-31T12:00:00Z"));
+  await mockFeeds(page, [
+    report({
+      id: "active",
+      title: "Active interruption",
+      active: true,
+      status: "investigating",
+      endedAt: null,
+    }),
+    report({
+      id: "maintenance",
+      title: "Scheduled maintenance",
+      maintenance: true,
+      status: "scheduled",
+    }),
+    report({ id: "resolved", title: "Resolved interruption" }),
+  ]);
+  for (const preset of [presets[0], presets[2]]) {
+    await mockBoard(page, { ...defaultBoard(), appearance: preset.appearance });
+    await page.goto("/");
+    await page.getByRole("button", { name: /Incidents/ }).click();
+    const filter = page.getByRole("button", { name: /^Filter incidents:/ });
+    const options = page.getByRole("group", {
+      name: "Filter incidents",
+      exact: true,
+    });
+    const reports = page.locator(".report h3");
+    await expect(reports).toHaveCount(3);
+    await filter.click();
+    await expect(filter).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      page.getByRole("radio", { name: "All reports", exact: true }),
+    ).toBeChecked();
+    await options.getByText("Active incidents", { exact: true }).click();
+    await expect(reports).toHaveText(["Active interruption"]);
+    await expect(options).toBeHidden();
+    await expect(filter).toBeFocused();
+    await filter.press("Enter");
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("radio", { name: "Active incidents", exact: true }),
+    ).toBeFocused();
+    await page.screenshot({
+      path: testInfo.outputPath(`filter-${preset.name}-keyboard.png`),
+    });
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      page.getByRole("radio", { name: "Maintenance", exact: true }),
+    ).toBeChecked();
+    await expect(reports).toHaveText(["Scheduled maintenance"]);
+    await page.keyboard.press("ArrowDown");
+    await expect(reports).toHaveText(["Resolved interruption"]);
+    await page.keyboard.press("Enter");
+    await expect(options).toBeHidden();
+    await expect(filter).toBeFocused();
+    await filter.press("Space");
+    await page.keyboard.press("Escape");
+    await expect(options).toBeHidden();
+    await expect(filter).toBeFocused();
+    await filter.click();
+    await page
+      .getByRole("heading", { name: "Service status", exact: true })
+      .click();
+    await expect(options).toBeHidden();
+    await filter.focus();
+    await filter.press("Enter");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
+    await expect(options).toBeHidden();
+    await expect(page.locator(".report")).toBeFocused();
+    await filter.click();
+    await options.getByText("All reports", { exact: true }).click();
+    await expect(reports).toHaveCount(3);
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await filter.click();
+      await expect(options).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      const bounds = (await options.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+            .analyze()
+        ).violations,
+      ).toEqual([]);
+      await page.screenshot({
+        path: testInfo.outputPath(`filter-${preset.name}-${width}.png`),
+        fullPage: true,
+      });
+      await page.keyboard.press("Escape");
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+});
+
+test.describe("incident filter on touch screens", () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test("selects a filter and dismisses it when reselecting the same option", async ({ page }) => {
+    await mockFeeds(page, [report({})]);
+    await page.goto("/");
+    await page.getByRole("button", { name: /Incidents/ }).tap();
+    const filter = page.getByRole("button", { name: /^Filter incidents:/ });
+    const options = page.getByRole("group", { name: "Filter incidents", exact: true });
+    await filter.tap();
+    await options.getByText("Past incidents", { exact: true }).tap();
+    await expect(filter).toHaveAccessibleName("Filter incidents: Past incidents");
+    await expect(filter).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".report h3")).toHaveText(["SQL interruption"]);
+    await filter.tap();
+    await options.getByText("Past incidents", { exact: true }).tap();
+    await expect(options).toBeHidden();
+  });
+});
+
 test("history opens scoped UTC reports by pointer and keyboard, with an honest empty state", async ({
   page,
 }, testInfo) => {
