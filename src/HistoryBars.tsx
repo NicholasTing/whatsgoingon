@@ -47,7 +47,9 @@ export function HistoryBars({
         aria-valuetext={description}
         onFocus={() => setActive(true)}
         onBlur={() => setActive(false)}
-        onPointerLeave={() => setActive(false)}
+        onPointerLeave={(event) =>
+          setActive(event.currentTarget === document.activeElement)
+        }
         onPointerMove={(e) => {
           select(e.currentTarget, e.clientX);
           setActive(true);

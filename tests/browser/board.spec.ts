@@ -493,6 +493,8 @@ test("history explains missing local checks separately from provider reports on 
   await expect(page.locator(".history-description")).toContainText(
     "2 provider reports",
   );
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".history-description")).toContainText("2 provider reports");
   await page.setViewportSize({ width: 320, height: 844 });
   expect(
     await page.evaluate(
