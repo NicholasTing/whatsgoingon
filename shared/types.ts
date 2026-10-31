@@ -95,10 +95,3 @@ export const labels: Record<Health, string> = {
   maintenance: "Maintenance",
   unknown: "Unknown",
 };
-export const symbols: Record<Health, string> = {
-  operational: "✓",
-  degraded: "!",
-  outage: "×",
-  maintenance: "◇",
-  unknown: "?",
-};

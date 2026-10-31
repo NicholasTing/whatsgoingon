@@ -97,11 +97,11 @@ test("Databricks component scope saves, reloads, and shares without affecting an
   await expect(
     recipient.getByRole("heading", { name: "My team board" }),
   ).toBeVisible();
-  await recipient.getByRole("button", { name: "Board settings" }).click();
-  await recipient.getByLabel("Board name").fill("Recipient copy");
-  await expect(
-    page.getByRole("heading", { name: "My status board" }),
-  ).toBeVisible();
+  await recipient.getByRole("button", { name: "Databricks (AWS)", exact: true }).click();
+  await recipient.getByRole("button", { name: "Remove service" }).click();
+  await expect(recipient.locator(".service")).toHaveCount(0);
+  await expect(page.locator(".service")).toHaveCount(1);
+  await expect(page.getByText("1 selected components")).toBeVisible();
   await recipient.close();
 });
 
@@ -241,7 +241,7 @@ test("appearance validates colours, persists, exports, imports, and shares", asy
   await page.getByRole("button", { name: "Apply appearance" }).click();
   await expect(page.locator(".app-shell")).toHaveCSS(
     "background-color",
-    "rgb(245, 246, 248)",
+    "rgb(16, 21, 30)",
   );
   await page.getByRole("button", { name: "Board settings" }).click();
   await page.getByLabel("Import board").setInputFiles({
@@ -599,6 +599,60 @@ test("current status and inline maintenance open reports; local-only outages exp
 });
 
 
+test("new boards start dark with readable status labels and matching previews", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(16, 21, 30)");
+  await page.getByRole("button", { name: "Add services" }).first().click();
+  for (const name of ["Claude", "Codex"]) {
+    await page.locator(".catalogue-row").filter({ hasText: name })
+      .getByRole("button", { name: "Add", exact: true }).click();
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".service-heading .badge")).toHaveText(["Outage", "Outage", "Outage"]);
+  await page.getByRole("button", { name: "Dismiss message" }).click();
+  await page.screenshot({ path: testInfo.outputPath("dark-dashboard.png"), fullPage: true });
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("dark-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+  await expect(page.locator(".preview-statuses .badge")).toHaveText(["Operational", "Degraded", "Outage", "Maintenance"]);
+  expect(await page.locator(".preview-statuses .badge").first().evaluate(el => getComputedStyle(el, "::before").width)).toBe("6px");
+  await page.screenshot({ path: testInfo.outputPath("dark-preview.png") });
+});
+
+test("board names are optional in fresh boards, settings, imports and setup", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".service")).toHaveCount(1);
+  await expect(page.locator(".board-heading h2")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("unnamed-board.png"), fullPage: true });
+  await page.getByRole("button", { name: "Board settings" }).click();
+  await expect(page.getByLabel("Board name", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Saved in this browser.", { exact: false })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("board-settings.png") });
+  for (const name of ["My status board", "Team dashboard"]) {
+    await page.getByLabel("Import board").setInputFiles({
+      name: "board.json", mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({ ...defaultBoard(), name })),
+    });
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!).name)).toBe(name);
+    await page.keyboard.press("Escape");
+    await page.reload();
+    await expect(page.locator(".board-heading h2")).toHaveCount(name === "My status board" ? 0 : 1);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!).name)).toBe(name);
+    await page.getByRole("button", { name: "Board settings" }).click();
+  }
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Set up your own", exact: true }).click();
+  await page.getByLabel("Organisation or page name (optional)").fill("");
+  const prompt = await page.getByLabel("Setup prompt", { exact: true }).inputValue();
+  expect(JSON.parse(prompt.split("```json\n")[1].split("\n```")[0]).name).toBe("");
+  await expect(page.getByRole("button", { name: "Copy setup prompt", exact: true })).toBeEnabled();
+});
+
+
 test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({ page }, testInfo) => {
   await mockFeeds(page);
   await page.goto("/");
@@ -664,4 +718,21 @@ test("status reports wait for a snapshot and keep Checking as their accessible n
   await expect(failedStatus).toBeEnabled();
   await failedStatus.click();
   await expect(page.getByRole("dialog")).toContainText("No provider report is available");
+});
+
+test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
+  const at = new Date().toISOString();
+  const reports: Incident[] = (["outage", "degraded"] as const).map(state => ({
+    id: state, title: `${state} incident`, status: "investigating", state,
+    active: true, maintenance: false, startedAt: at,
+    updatedAt: at, endedAt: null, componentIds: [],
+    body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
+  }));
+  await mockFeeds(page, reports);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Incidents (2)", exact: true }).click();
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Degraded · investigating"]);
+  await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
+  await page.getByRole("button", { name: /outage incident/ }).click();
+  await expect(page.getByRole("dialog").locator(".badge")).toHaveText("Outage · investigating");
 });

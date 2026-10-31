@@ -39,7 +39,7 @@ export const monitorSchema = z.object({
 });
 export const boardSchema = z.object({
   version: z.literal(1),
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().max(80).default(""),
   monitors: z
     .array(monitorSchema)
     .max(40)
@@ -54,7 +54,7 @@ export const boardSchema = z.object({
 export function defaultBoard(): Board {
   return {
     version: 1,
-    name: "My status board",
+    name: "",
     monitors: [{ id: "databricks", componentIds: [], group: "" }],
     notifications: false,
     alertLevel: "all",

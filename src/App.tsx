@@ -11,7 +11,7 @@ import type {
   Provider,
   Snapshot,
 } from "../shared/types.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
 import {
   boardFromHash,
   changesBetween,
@@ -91,8 +91,9 @@ function when(value: string | null): string {
 function Badge({ state, text }: { state: Health; text?: string }) {
   return (
     <span className={`badge ${state}`}>
-      <span aria-hidden="true">{symbols[state]}</span>
-      {text ?? labels[state]}
+      {text && text !== "Checking"
+        ? `${labels[state]} · ${text}`
+        : text ?? labels[state]}
     </span>
   );
 }
@@ -522,9 +523,7 @@ export function App() {
           </div>
         )}
         <section className={`summary ${state}`} aria-label="Board summary">
-          <div className="summary-icon" aria-hidden="true">
-            {symbols[state]}
-          </div>
+          <div className="summary-icon" aria-hidden="true" />
           <div>
             <h2>
               {!items.length
@@ -564,7 +563,7 @@ export function App() {
         </section>
         <div className="board-heading">
           <div>
-            <h2>{board.name}</h2>
+            {board.name && board.name !== "My status board" && <h2>{board.name}</h2>}
             <span className="small muted">
               Public provider reports. Account-specific issues may differ.
             </span>
@@ -1008,24 +1007,6 @@ export function App() {
       {modal === "settings" && (
         <Dialog title="Your board" close={() => setModal(null)}>
           <div className="dialog-body settings">
-            <label>
-              Board name
-              <input
-                value={board.name}
-                maxLength={80}
-                onChange={(e) =>
-                  setBoard((old) => ({
-                    ...old,
-                    name: e.target.value || "My status board",
-                  }))
-                }
-              />
-            </label>
-            <p className="muted small">
-              Saved in this browser. No account, cookies, or shared workspace
-              required.
-            </p>
-            <div className="divider" />
             <h3>Notifications</h3>
             <p className="small">
               Browser alerts need this page to remain open. Use your own

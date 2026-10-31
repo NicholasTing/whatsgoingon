@@ -537,3 +537,15 @@ test("daily reports share the history component scope and UTC boundaries", () =>
     store.close();
   }
 });
+
+test("unnamed boards load and share while existing names remain intact", () => {
+  const { name, ...unnamed } = defaultBoard();
+  assert.equal(name, "");
+  assert.equal(readBoard(unnamed).name, "");
+  for (const name of ["", "My status board", "Data team"]) {
+    const board = readBoard({ ...unnamed, name });
+    assert.equal(board.name, name);
+    assert.equal(boardFromHash(shareBoard(board))?.name, name);
+  }
+  assert.throws(() => readBoard({ ...unnamed, name: "x".repeat(81) }));
+});

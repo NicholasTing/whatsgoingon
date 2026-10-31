@@ -40,7 +40,7 @@ test("appearance round trips through sharing and rejects unsafe or unreadable im
     boardFromHash(shareBoard(board))?.appearance,
     board.appearance,
   );
-  for (const accent of ["#ffffff", "red", "#123", "url(https://example.com)"]) {
+  for (const accent of ["#19212e", "red", "#123", "url(https://example.com)"]) {
     assert.throws(() =>
       readBoard({
         ...defaultBoard(),
@@ -54,4 +54,16 @@ test("appearance round trips through sharing and rejects unsafe or unreadable im
       appearance: { ...board.appearance, outage: "#19212e" },
     }),
   );
+});
+
+
+test("fresh and legacy boards default to dark while explicit appearances survive", () => {
+  assert.equal(defaultBoard().appearance.mode, "dark");
+  const { appearance, ...legacy } = defaultBoard();
+  assert.equal(readBoard(legacy).appearance.mode, "dark");
+  for (const { appearance } of presets) {
+    const board = readBoard({ ...legacy, appearance });
+    assert.deepEqual(board.appearance, appearance);
+    assert.deepEqual(boardFromHash(shareBoard(board))?.appearance, appearance);
+  }
 });
