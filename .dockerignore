@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+.data
+.env*
+watch.config.json
+*.local.json
+test-results
+playwright-report

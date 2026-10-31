@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.data/
+.env
+.env.*
+!.env.example
+watch.config.json
+*.local.json
+*.log
+.DS_Store
+test-results/
+playwright-report/

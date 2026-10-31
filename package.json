@@ -1,0 +1,34 @@
+{
+  "name": "whatsgoingon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "start": "node server/index.ts --production",
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "npm test && npm run build",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "ipaddr.js": "^2.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}

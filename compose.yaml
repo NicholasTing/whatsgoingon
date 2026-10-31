@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:4173:4173"
+    volumes:
+      - status-data:/data
+    restart: unless-stopped
+volumes:
+  status-data:
