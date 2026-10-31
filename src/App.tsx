@@ -279,7 +279,7 @@ export function App() {
             if (historyResult.status === "fulfilled")
               setHistories((old) => ({
                 ...old,
-                [monitor.id]: historyResult.value,
+                [apiUrl("history", monitor)]: historyResult.value,
               }));
             setFailures((old) => {
               const copy = { ...old };
@@ -658,6 +658,7 @@ export function App() {
                           </div>
                           <button
                             className="status-button"
+                            disabled={!snapshot && !failures[monitor.id]}
                             aria-label={`${name}: ${!snapshot && !failures[monitor.id] ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
                             onClick={() => openReports(monitor, name, snapshot)}
                           >
@@ -673,7 +674,7 @@ export function App() {
                         </div>
                         <HistoryBars
                           name={name}
-                          history={histories[monitor.id]}
+                          history={histories[apiUrl("history", monitor)]}
                           onSelect={(day) =>
                             openReports(monitor, name, snapshot, day)
                           }

@@ -620,7 +620,32 @@ test("compact navigation keeps setup and feedback accessible on desktop and mobi
 });
 
 
-test("loading status has an accessible name matching Checking", async ({ page }) => {
+test("changing component scope does not reuse history when the new request fails", async ({ page }) => {
+  await mockFeeds(page);
+  await page.route("**/api/history/**", route => {
+    if (new URL(route.request().url()).searchParams.has("component")) return route.abort();
+    return route.fulfill({ json: {
+      days: Array.from({ length: 90 }, (_, i) => ({
+        date: new Date(Date.now() - (89 - i) * 86400000).toISOString().slice(0, 10),
+        state: "outage", samples: 1, complete: false,
+      })),
+      observedSince: null, source: "observations", warning: "Incomplete history",
+    } });
+  });
+  await page.goto("/");
+  await expect(page.locator(".bar.outage")).toHaveCount(90);
+  await page.getByRole("button", { name: "Databricks (AWS)", exact: true }).click();
+  await page.getByLabel("Filter components by region or group").selectOption("AP Southeast 2");
+  await page.getByRole("button", { name: "Only these results" }).click();
+  await page.getByRole("button", { name: "Save selection" }).click();
+  await expect(page.getByRole("heading", { name: "All tracked services operational" })).toBeVisible();
+  await expect(page.locator(".bar.outage")).toHaveCount(0);
+  await page.getByRole("slider").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("status reports wait for a snapshot and keep Checking as their accessible name", async ({ page }) => {
   await mockFeeds(page);
   let release!: () => void;
   const ready = new Promise<void>(resolve => { release = resolve; });
@@ -630,6 +655,13 @@ test("loading status has an accessible name matching Checking", async ({ page })
   });
   await page.goto("/");
   await expect(page.getByRole("button", { name: /Checking\. View reports/ })).toContainText("Checking");
+  await expect(page.getByRole("button", { name: /Checking\. View reports/ })).toBeDisabled();
   release();
-  await expect(page.getByRole("button", { name: "Databricks (AWS): Outage. View reports" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Databricks (AWS): Outage. View reports" })).toBeEnabled();
+  await page.route("**/api/status/**", route => route.abort());
+  await page.reload();
+  const failedStatus = page.getByRole("button", { name: "Databricks (AWS): Unknown. View reports" });
+  await expect(failedStatus).toBeEnabled();
+  await failedStatus.click();
+  await expect(page.getByRole("dialog")).toContainText("No provider report is available");
 });
