@@ -10,7 +10,7 @@ import type {
   Provider,
   Snapshot,
 } from "../shared/types.ts";
-import { labels, symbols } from "../shared/types.ts";
+import { labels } from "../shared/types.ts";
 import {
   boardFromHash,
   changesBetween,
@@ -86,11 +86,19 @@ function when(value: string | null): string {
       })
     : "Time not supplied";
 }
-function Badge({ state, text }: { state: Health; text?: string }) {
+function incidentStatusText(status: string): string | undefined {
+  return status && status !== "Checking"
+    ? status.replaceAll("_", " ")
+    : undefined;
+}
+function Badge({ state, text, checking = false }: {
+  state: Health;
+  text?: string;
+  checking?: boolean;
+}) {
   return (
     <span className={`badge ${state}`}>
-      <span aria-hidden="true">{symbols[state]}</span>
-      {text ?? labels[state]}
+      {checking ? "Checking" : text ? `${labels[state]} · ${text}` : labels[state]}
     </span>
   );
 }
@@ -493,9 +501,7 @@ export function App() {
           </div>
         )}
         <section className={`summary ${state}`} aria-label="Board summary">
-          <div className="summary-icon" aria-hidden="true">
-            {symbols[state]}
-          </div>
+          <div className="summary-icon" aria-hidden="true" />
           <div>
             <h2>
               {!items.length
@@ -629,11 +635,7 @@ export function App() {
                           </div>
                           <Badge
                             state={snapshot?.state ?? "unknown"}
-                            text={
-                              !snapshot && !failures[monitor.id]
-                                ? "Checking"
-                                : undefined
-                            }
+                            checking={!snapshot && !failures[monitor.id]}
                           />
                         </div>
                         <HistoryBars
@@ -754,7 +756,7 @@ export function App() {
                           ? "maintenance"
                           : "operational"
                     }
-                    text={i.status.replaceAll("_", " ")}
+                    text={incidentStatusText(i.status)}
                   />
                 </button>
               ))}
@@ -890,9 +892,11 @@ export function App() {
                 state={
                   selectedIncident.active
                     ? selectedIncident.state
-                    : "operational"
+                    : selectedIncident.status === "scheduled"
+                      ? "maintenance"
+                      : "operational"
                 }
-                text={selectedIncident.status.replaceAll("_", " ")}
+                text={incidentStatusText(selectedIncident.status)}
               />
               <span>{selectedIncident.providerName}</span>
             </div>

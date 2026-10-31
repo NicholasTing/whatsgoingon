@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
+import type { Incident } from "../../shared/types.ts";
 import type { Page } from "@playwright/test";
 import { defaultBoard } from "../../shared/board.ts";
 import { presets } from "../../shared/appearance.ts";
 
-async function mockFeeds(page: Page) {
+async function mockFeeds(page: Page, incidents: Incident[] = []) {
   await page.route("**/api/status/**", (route) => {
     const url = new URL(route.request().url());
     const id = url.pathname.split("/").at(-1)!;
@@ -31,7 +32,7 @@ async function mockFeeds(page: Page) {
         components: selected.length
           ? components.filter((c) => selected.includes(c.id))
           : components,
-        incidents: [],
+        incidents,
       },
     });
   });
@@ -235,7 +236,7 @@ test("appearance validates colours, persists, exports, imports, and shares", asy
   await page.getByRole("button", { name: "Apply appearance" }).click();
   await expect(page.locator(".app-shell")).toHaveCSS(
     "background-color",
-    "rgb(245, 246, 248)",
+    "rgb(16, 21, 30)",
   );
   await page.getByRole("button", { name: "Board settings" }).click();
   await page.getByLabel("Import board").setInputFiles({
@@ -432,6 +433,29 @@ test("setup prompt has a manual-copy fallback and fits an accessible mobile dial
 });
 
 
+test("new boards start dark with readable status labels and matching previews", async ({ page }, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(16, 21, 30)");
+  await page.getByRole("button", { name: "Add services" }).first().click();
+  for (const name of ["Claude", "Codex"]) {
+    await page.locator(".catalogue-row").filter({ hasText: name })
+      .getByRole("button", { name: "Add", exact: true }).click();
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".service-heading .badge")).toHaveText(["Outage", "Outage", "Outage"]);
+  await page.getByRole("button", { name: "Dismiss message" }).click();
+  await page.screenshot({ path: testInfo.outputPath("dark-dashboard.png"), fullPage: true });
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("dark-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+  await expect(page.locator(".preview-statuses .badge")).toHaveText(["Operational", "Degraded", "Outage", "Maintenance"]);
+  expect(await page.locator(".preview-statuses .badge").first().evaluate(el => getComputedStyle(el, "::before").width)).toBe("6px");
+  await page.screenshot({ path: testInfo.outputPath("dark-preview.png") });
+});
+
 test("board names are optional in fresh boards, settings, imports and setup", async ({ page }, testInfo) => {
   await mockFeeds(page);
   await page.goto("/");
@@ -481,4 +505,29 @@ test("compact navigation keeps setup and feedback accessible on desktop and mobi
   await expect(setup).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Request a feature" })).toBeFocused();
+});
+
+
+test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
+  const at = new Date().toISOString();
+  const reports: Incident[] = (["outage", "degraded"] as const).flatMap(state => ["investigating", "", "Checking"].map(status => ({
+    id: `${state}-${status}`, title: `${state} ${status || "empty"} incident`, status, state,
+    active: true, maintenance: false, startedAt: at,
+    updatedAt: at, endedAt: null, componentIds: [],
+    body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
+  })));
+  reports.push({
+    ...reports[0], id: "scheduled", title: "Scheduled maintenance", status: "scheduled",
+    state: "maintenance", maintenance: true, active: false,
+  });
+  await mockFeeds(page, reports);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Incidents (6)", exact: true }).click();
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded", "Maintenance · scheduled"]);
+  await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
+  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"], ["Scheduled maintenance", "Maintenance · scheduled"]]) {
+    await page.getByRole("button", { name: new RegExp(title) }).click();
+    await expect(page.getByRole("dialog").locator(".badge")).toHaveText(label);
+    await page.keyboard.press("Escape");
+  }
 });
