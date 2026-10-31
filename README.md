@@ -1,6 +1,6 @@
 # whatsgoingon
 
-A personal status board for the services you rely on. Open it, choose providers and components, and keep an eye on incidents. No sign-in or provider credentials required.
+A read-only status board for the services you rely on. Configure a service array on the server, then view live status, history, and incidents. Everyone sees the same services. No sign-in or provider credentials required.
 
 ![Dark dashboard showing Databricks, Claude and Codex with unknown history (test data)](docs/preview.png)
 
@@ -15,9 +15,50 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:4173>. Databricks (AWS) is on the default board. Select its name, choose a region such as **AP Southeast 2**, select **Only these results**, and save. Use **Add services** for Claude, Codex, or another provider.
+Open <http://localhost:4173>. Databricks (AWS) is configured by default. Select its name to open the official status page. Select its status or a history day to inspect incident reports.
 
-The frontend reloads while you edit it. Restart the development server after changing backend files.
+The frontend reloads while you edit it. Restart the server after changing services.json or backend files.
+
+## Configure services
+
+Edit `services.json` before starting the server. It is an array of service IDs with optional component selections and groups:
+
+```json
+[
+  { "id": "databricks", "componentIds": [], "group": "Data" },
+  { "id": "claude", "group": "AI" },
+  { "id": "codex", "group": "AI" }
+]
+```
+
+IDs map to official status-page URLs and feed adapters in the static dictionary, [`server/catalog.ts`](server/catalog.ts). Available IDs are `databricks`, `claude`, `codex`, `openai`, `github`, `cloudflare`, `tailscale`, `modal`, `circleci`, `vercel`, `supabase`, `npm`, `pypi`, `docker`, `linear`, `notion`, and `discord`.
+
+An empty or omitted `componentIds` selects all components. To scope a service, start with all components, inspect its `/api/status/<id>` response, copy the desired component IDs into the array, and restart. `group` is optional. The array permits up to 40 distinct IDs; invalid configuration stops startup. An empty array displays an empty board.
+
+**To add, remove, or change a service, edit the file, restart the server, and reload the page.** A browser refresh alone does not reload the configuration. For `npm run dev` or `npm start`, stop the process with Ctrl+C and run the same command again. No rebuild is needed for service-array edits. For Compose, run `docker compose restart app` after editing the mounted file.
+
+Use a different file with `SERVICES_CONFIG=/absolute/path/services.local.json npm start`. The app does not automatically load `.env` files. Appearance and the optional board name remain source configuration in `shared/appearance.ts` and `shared/board.ts`; rebuild and restart after changing them.
+
+The browser cannot add services, edit component selections, import a board, or save appearance changes. Old browser boards and `#board=` links no longer control the dashboard; their stored data is left intact. Share links and embeds point to this server's configured board.
+
+Service configuration needs no database. If you want runtime editing, you must implement and maintain your own database and authenticated editing API. That integration is not included. The existing SQLite database records status history and alert deliveries, not the service list.
+
+For a public custom status page or endpoint, configure the monitor in the same array:
+
+```json
+[
+  {
+    "id": "my-api",
+    "custom": {
+      "name": "My API",
+      "url": "https://example.com/health",
+      "kind": "http"
+    }
+  }
+]
+```
+
+Use `kind: "statuspage"` for a Statuspage-compatible page, or `kind: "http"` for a public HTTPS health endpoint. HTTP checks optionally accept `keyword` inside `custom` for expected response text. Add providers with other feed formats to the dictionary and implement their adapter. Custom URLs are public dashboard configuration; do not put credentials or private targets in them.
 
 ## Set up your organisation's page
 
@@ -25,7 +66,7 @@ Select **Set up your own** in the footer, optionally enter a page name, and choo
 
 The audit produces an inventory with file-and-line evidence, confidence, product/region scope, and proposed monitors. It includes Claude and Codex as setup defaults. Review the list with the agent, resolve uncertain scopes, and add or remove services. Your current board is a starting point; the final board also includes the agreed audit findings. Unsupported or private services remain visible as gaps.
 
-The agent then configures and starts the dashboard in a separate directory. It sets the agreed board as the default for new visitors and exports it for existing browsers. It monitors the dependencies it finds; it does not provision the organisation's infrastructure.
+The agent then configures and starts the dashboard in a separate directory. It writes the agreed services.json array, validates it, and starts the read-only board for all visitors. It monitors the dependencies it finds; it does not provision the organisation's infrastructure.
 
 You can also copy the [standalone setup prompt](docs/setup-prompt.md) and append your board JSON or hosting preferences. Without a starting board, it uses the audit findings, Claude, Codex, and a local preview. The agent needs access to both the organisation codebase and this repository; private repositories require GitHub access.
 
@@ -33,21 +74,33 @@ Review custom monitor URLs before sharing the prompt. Keep credentials in your o
 
 ## What you can use
 
-- Public provider status, component and region filters, incident updates, and scheduled maintenance.
-- A searchable catalogue, plus custom Statuspage-compatible pages and public HTTPS endpoint checks. Endpoint checks include response time, optional expected text, and TLS certificate expiry.
-- Boards saved in your browser, groups, import/export, share links, and iframe embeds. Shared boards use fresh public data; each recipient controls their own copy.
-- Dark appearance for new and legacy boards without a saved theme; explicit saved choices stay intact. An **Appearance** panel with light and dark presets, custom accent and status colours, a preview, and contrast checks. Appearance stays with the board when you reload, export, or share it.
+- Live public provider status, configured component and region scope, incident updates, and scheduled maintenance.
+- Search across configured services, with official status-page links, custom Statuspage-compatible pages, and public HTTPS endpoint checks. Endpoint checks include response time, optional expected text, and TLS certificate expiry.
+- Server-configured groups, share links, and iframe embeds. Every visitor uses the same configured services.
+- Dark appearance by default, with source-configured colours validated for contrast.
 - Daily observations and retained incident reports in SQLite. Select a history day (click, or arrow keys then Enter/Space) or current status to inspect related reports and open the official incident. Reports follow your selected components and UTC dates. Missing reports and history remain explicit.
-- Browser alerts while the page is open. Your own running instance can send background alerts through generic webhooks, Slack, Discord, Teams workflows, or PagerDuty.
+- Background alerts configured by the server owner through generic webhooks, Slack, Discord, Teams workflows, or PagerDuty.
 - A read-only JSON API, incident RSS feed, and embeddable status badges.
 
 ## Data and credentials
 
-Board configuration is stored in local browser storage. Share links contain the board name, selected services and components, groups, and custom monitor URLs. They are configuration snapshots, not private or collaboratively edited workspaces.
+The service array is read once at startup. The browser reads configuration through `/api/board`; it does not persist or modify it. Status, history, incident, RSS, and badge endpoints accept only services configured on this server and use their fixed component selections.
 
-The server fetches public status pages and stores public observations in `.data/status.sqlite`. Custom monitor URLs and expected text are sent to the server so it can perform the check. Use public targets only. There are no analytics, required API keys, or credentials bundled with the app.
+The server fetches public status pages and stores public observations in `.data/status.sqlite`. Custom monitor URLs and expected text come from the server configuration. Use public targets only. There are no analytics, required API keys, or credentials bundled with the app.
 
-Webhook settings entered in **API & alerts** are kept in that dialog until downloaded. They are not sent to the hosted server or saved in the board. To run background alerts, download `watch.config.json` and use it on your own instance:
+## Background alerts
+
+The server owner can create a private `watch.config.json` with monitors and destinations:
+
+```json
+{
+  "monitors": [{ "id": "databricks", "componentIds": [], "group": "" }],
+  "alertLevel": "all",
+  "destinations": [{ "type": "webhook", "url": "https://example.com/your-webhook" }]
+}
+```
+
+Use your actual destination URL. This separate file controls background alerts; it does not change the public board's service array. Start your instance with:
 
 ```sh
 npm run build
@@ -76,29 +129,30 @@ A Docker setup is included:
 docker compose up --build -d
 ```
 
-It exposes port 4173 and keeps observations in a named volume. To enable alerts, mount your own `watch.config.json` read-only and set `WATCH_CONFIG` to its container path. Do not bake that file into an image.
+It exposes port 4173, mounts services.json read-only, and keeps observations in a named volume. To enable alerts, mount your own `watch.config.json` read-only and set `WATCH_CONFIG` to its container path. Do not bake that file into an image.
 
-For a deployment you want to keep, run one continuously available instance with a persistent disk and backups stored on another system. See [persistence and recovery](docs/persistence.md) for volume reuse, browser board exports, storage choices, and backup and restore steps.
+For a deployment you want to keep, run one continuously available instance with a persistent disk and backups stored on another system. See [persistence and recovery](docs/persistence.md) for volume reuse, service configuration, storage choices, and backup and restore steps.
 
 `npm run build` produces the browser assets. A static deployment, including Vercel’s Vite preset, also needs the Node backend: route `/api/*` to an instance with persistent storage. Otherwise, provider requests return a missing-page response and the board reports that the status service is unavailable. Running the backend as serverless functions requires external persistence and scheduled collection; a temporary SQLite file will lose history when the instance is replaced.
 
 ## API
 
-Examples below use the default local server. Add repeated `component` parameters to scope a provider's status or history.
+Examples below use the default local server. Component scope comes from services.json; request parameters cannot change it. The catalogue lists only configured services. Incident and RSS requests default to every configured service; an optional `providers` parameter can narrow that list.
 
 ```text
+GET /api/board
 GET /api/catalog?q=databricks
 GET /api/status/databricks
 GET /api/history/databricks
-GET /api/incidents?providers=databricks,claude,codex
-GET /api/feed.xml?providers=databricks,claude,codex
+GET /api/incidents
+GET /api/feed.xml
 GET /api/badge/databricks.svg
 GET /api/health
 ```
 
 The status response includes component IDs, current state, incident updates, observation timestamps, and stale-data warnings. Each history day separates local check counts (`samples`) from matching provider report counts (`reports`). A reported incident can colour a day with no local checks. With neither checks nor reports, the day stays unknown; partial local coverage is never proof of all-day health. This is not an uptime SLA measurement. Unknown or stale feeds do not become healthy by default.
 
-The UI generates custom monitor URLs and configuration exports. Custom endpoints must use public HTTPS without embedded credentials, query strings, fragments, or a nonstandard port. The server validates DNS answers, pins the destination address, blocks private networks, does not follow redirects, and limits response sizes and request rates.
+Custom endpoints must use public HTTPS without embedded credentials, query strings, fragments, or a nonstandard port. The server validates DNS answers, pins the destination address, blocks private networks, does not follow redirects, and limits response sizes and request rates.
 
 ## Checks
 
@@ -108,7 +162,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Unit tests cover feed normalization, component scope, stale data, history gaps, public URL validation, configuration sharing, and webhook retries. Browser tests cover the Databricks flow, board isolation, keyboard navigation, mobile layout, automated accessibility, and credential handling. Browser tests use deterministic provider responses; live provider checks should also be performed when changing an adapter.
+Unit tests cover feed normalization, component scope, stale data, history gaps, public URL validation, startup configuration, restart behavior, read-only API enforcement, and webhook retries. Browser tests cover configured service links and logos, ignored legacy boards, incident reports, keyboard navigation, mobile layout, and automated accessibility. Browser tests use deterministic provider responses; live provider checks should also be performed when changing an adapter.
 
 CI runs these checks on pushes and pull requests, plus `npm audit --audit-level=high` for known dependency vulnerabilities. Dependabot proposes weekly npm and GitHub Actions updates. Major npm updates remain separate for review.
 
@@ -130,6 +184,6 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, ch
 
 Public provider reports can lag failures and cannot establish the health of a specific account. Databricks' built-in feed covers AWS. Its current feed does not provide a complete resolved-incident archive, so this app accumulates observations as it runs. Other providers expose differing amounts of historical data.
 
-Browser alerts depend on browser support and an open page. Background alerts require your own running instance and notification destination. Endpoint checks run from that instance, not a global probe network. RSS includes catalogue providers and is provider-wide.
+Background alerts require your own running instance and notification destination. Endpoint checks run from that instance, not a global probe network. RSS includes configured services and follows their component selections.
 
 Licensed under [MIT](LICENSE).

@@ -13,56 +13,23 @@ import type {
 } from "../shared/types.ts";
 import { labels } from "../shared/types.ts";
 import {
-  boardFromHash,
   changesBetween,
-  defaultBoard,
   incidentsForDay,
   readBoard,
   scoped,
-  shareBoard,
   worst,
 } from "../shared/board.ts";
 import { HistoryBars } from "./HistoryBars.tsx";
-import { AppearancePanel } from "./AppearancePanel.tsx";
 import { SetupPanel } from "./SetupPanel.tsx";
 import { Icon } from "./Icon.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
 import { appearanceStyle } from "../shared/appearance.ts";
 
-const STORAGE = "whatsgoingon.board.v1";
 const GITHUB = "https://github.com/NicholasTing/whatsgoingon";
 type Catalogue = Omit<Provider, "feed">;
 type IncidentRow = Incident & { providerId: string; providerName: string };
-function initial(): { board: Board; message: string } {
-  try {
-    const shared = boardFromHash(location.hash);
-    if (shared)
-      return {
-        board: shared,
-        message: "Shared board opened. Changes are saved only in this browser.",
-      };
-    const saved = localStorage.getItem(STORAGE);
-    return {
-      board: saved ? readBoard(JSON.parse(saved)) : defaultBoard(),
-      message: "",
-    };
-  } catch {
-    return {
-      board: defaultBoard(),
-      message:
-        "A saved or shared board could not be read. Your default Databricks board is ready.",
-    };
-  }
-}
 function apiUrl(kind: string, monitor: Monitor): string {
-  const query = new URLSearchParams();
-  monitor.componentIds.forEach((id) => query.append("component", id));
-  if (monitor.custom) {
-    query.set("url", monitor.custom.url);
-    query.set("kind", monitor.custom.kind);
-    if (monitor.custom.keyword) query.set("keyword", monitor.custom.keyword);
-  }
-  return `/api/${kind}/${encodeURIComponent(monitor.id)}?${query}`;
+  return `/api/${kind}/${encodeURIComponent(monitor.id)}`;
 }
 async function get<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal });
@@ -73,18 +40,6 @@ async function get<T>(url: string, signal?: AbortSignal): Promise<T> {
   });
   if (!response.ok) throw new Error(data.error ?? "Request failed.");
   return data;
-}
-function download(name: string, value: unknown) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(value, null, 2) + "\n"], {
-      type: "application/json",
-    }),
-  );
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function when(value: string | null): string {
   return value
@@ -106,14 +61,22 @@ function incidentStatusText(status: string): string | undefined {
     ? status.replaceAll("_", " ")
     : undefined;
 }
-function Badge({ state, text, checking = false }: {
+function Badge({
+  state,
+  text,
+  checking = false,
+}: {
   state: Health;
   text?: string;
   checking?: boolean;
 }) {
   return (
     <span className={`badge ${state}`}>
-      {checking ? "Checking" : text ? `${labels[state]} · ${text}` : labels[state]}
+      {checking
+        ? "Checking"
+        : text
+          ? `${labels[state]} · ${text}`
+          : labels[state]}
     </span>
   );
 }
@@ -177,13 +140,58 @@ function Dialog({
 }
 
 export function App() {
-  const [start] = useState(initial);
-  const [board, setBoard] = useState<Board>(start.board);
-  const [catalog, setCatalog] = useState<Catalogue[]>([]);
+  const [configuration, setConfiguration] = useState<{
+    board: Board;
+    catalog: Catalogue[];
+  } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([
+      get<Board>("/api/board", controller.signal),
+      get<{ providers: Catalogue[] }>("/api/catalog", controller.signal),
+    ])
+      .then(([board, catalog]) => {
+        if (!controller.signal.aborted)
+          setConfiguration({
+            board: readBoard(board),
+            catalog: catalog.providers,
+          });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setError(
+            "The configured services could not be loaded. Check the server and reload this page.",
+          );
+      });
+    return () => controller.abort();
+  }, []);
+  if (!configuration)
+    return (
+      <main className="app-shell">
+        <h1>Service status</h1>
+        <p role={error ? "alert" : "status"}>
+          {error || "Loading configured services…"}
+        </p>
+        {error && (
+          <button className="secondary" onClick={() => location.reload()}>
+            Reload page
+          </button>
+        )}
+      </main>
+    );
+  return <Dashboard {...configuration} />;
+}
+
+function Dashboard({ board, catalog }: { board: Board; catalog: Catalogue[] }) {
   const [snapshots, setSnapshots] = useState<Record<string, Snapshot>>({});
   const [histories, setHistories] = useState<Record<string, History>>({});
   const [failures, setFailures] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState(start.message);
+  const [message, setMessage] = useState(
+    location.hash.startsWith("#board=")
+      ? "This server uses its configured service list. Older shared boards cannot change it."
+      : "",
+  );
   const [events, setEvents] = useState<Change[]>([]);
   const [now, setNow] = useState(Date.now());
   const [refresh, setRefresh] = useState(0);
@@ -195,9 +203,8 @@ export function App() {
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [incidentFilter, setIncidentFilter] = useState("all");
   const [modal, setModal] = useState<
-    "add" | "settings" | "integrations" | "appearance" | "setup" | null
+    "configuration" | "integrations" | "setup" | null
   >(null);
-  const [editing, setEditing] = useState<Monitor | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
     null,
   );
@@ -207,46 +214,9 @@ export function App() {
     state: Health;
   } | null>(null);
   const previous = useRef<Record<string, Snapshot>>({});
-  const notificationPrefs = useRef(board);
-  notificationPrefs.current = board;
   const monitorsKey = JSON.stringify(board.monitors);
   const embed = new URLSearchParams(location.search).has("embed");
 
-  useEffect(() => {
-    get<{ providers: Catalogue[] }>("/api/catalog")
-      .then((data) => setCatalog(data.providers))
-      .catch(() =>
-        setMessage(
-          "The provider catalogue could not be loaded. Check the server and refresh.",
-        ),
-      );
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE, JSON.stringify(board));
-    } catch {
-      setMessage(
-        "Browser storage is unavailable. Export your board to keep your changes.",
-      );
-    }
-  }, [board]);
-  useEffect(() => {
-    const handler = () => {
-      try {
-        const value = boardFromHash(location.hash);
-        if (value) {
-          setBoard(value);
-          setMessage("Shared board opened. Your changes stay in this browser.");
-        }
-      } catch {
-        setMessage(
-          "This shared board is invalid. Your current board is unchanged.",
-        );
-      }
-    };
-    window.addEventListener("hashchange", handler);
-    return () => window.removeEventListener("hashchange", handler);
-  }, []);
   useEffect(() => {
     const controller = new AbortController();
     let busy = false;
@@ -272,30 +242,6 @@ export function App() {
             previous.current[key] = current;
             if (changes.length) {
               setEvents((old) => [...changes, ...old].slice(0, 100));
-              for (const event of changes)
-                if (
-                  notificationPrefs.current.notifications &&
-                  "Notification" in window &&
-                  Notification.permission === "granted" &&
-                  (notificationPrefs.current.alertLevel === "all" ||
-                    event.state === "outage" ||
-                    (event.state === "operational" && old?.state === "outage"))
-                ) {
-                  try {
-                    const notification = new Notification("whatsgoingon", {
-                      body: event.title,
-                      tag: event.providerId,
-                    });
-                    notification.onclick = () => {
-                      window.focus();
-                      notification.close();
-                    };
-                  } catch {
-                    setMessage(
-                      "This browser could not show a desktop alert. Changes are still available in Activity.",
-                    );
-                  }
-                }
             }
             setSnapshots((old) => ({ ...old, [statusKey]: snapshot }));
             if (historyResult.status === "fulfilled")
@@ -425,56 +371,17 @@ export function App() {
     });
     setSelectedIncident(reports[0] ?? null);
   }
-  function add(id: string) {
-    setBoard((old) =>
-      old.monitors.some((m) => m.id === id)
-        ? old
-        : {
-            ...old,
-            monitors: [...old.monitors, { id, componentIds: [], group: "" }],
-          },
-    );
-    setMessage("Service added to your board.");
-  }
   async function share() {
     try {
-      const url = new URL(location.href);
-      url.search = "";
-      url.hash = shareBoard(board);
-      if (url.href.length > 60_000) {
-        setMessage(
-          "This board is too large for a share link. Export its configuration from Board settings instead.",
-        );
-        return;
-      }
-      await navigator.clipboard.writeText(url.href);
+      await navigator.clipboard.writeText(
+        new URL(location.pathname, location.origin).href,
+      );
       setMessage(
-        "Board link copied. It shares your service selection, not a live-editable workspace.",
+        "Board link copied. Everyone sees this server’s configured services.",
       );
     } catch {
       setMessage(
-        "Clipboard access is unavailable. Export your board from Settings to share it.",
-      );
-    }
-  }
-  async function notifications() {
-    if (!("Notification" in window)) {
-      setMessage(
-        "Browser notifications are unavailable here. Use the Activity tab or connect your own collector.",
-      );
-      return;
-    }
-    try {
-      const permission = await Notification.requestPermission();
-      setBoard((old) => ({ ...old, notifications: permission === "granted" }));
-      setMessage(
-        permission === "granted"
-          ? "Browser alerts enabled. Keep this page open; background tabs may be throttled."
-          : "Notifications were not enabled. You can change this in your browser settings.",
-      );
-    } catch {
-      setMessage(
-        "This browser does not support desktop notifications. Activity is still recorded while the page is open.",
+        "Copy the page address from your browser to share this board.",
       );
     }
   }
@@ -498,19 +405,9 @@ export function App() {
             <div className="masthead-actions">
               <button
                 className="secondary"
-                onClick={() => setModal("appearance")}
+                onClick={() => setModal("configuration")}
               >
-                <Icon name="appearance" />
-                Appearance
-              </button>
-              <button
-                className="secondary"
-                onClick={() => setModal("settings")}
-              >
-                <Icon name="settings" /> Board settings
-              </button>
-              <button className="primary" onClick={() => setModal("add")}>
-                <Icon name="plus" /> Add services
+                <Icon name="settings" /> Configured services
               </button>
             </div>
           </section>
@@ -532,7 +429,7 @@ export function App() {
           <div>
             <h2>
               {!items.length
-                ? "Make yourself a status board"
+                ? "No services configured"
                 : unknown === items.length
                   ? "Getting the full picture"
                   : affected
@@ -545,7 +442,7 @@ export function App() {
             </h2>
             <p>
               {!items.length
-                ? "Choose a provider to start watching its public status."
+                ? "Add services to services.json on the server, then restart it."
                 : `${items.length} ${items.length === 1 ? "service" : "services"} tracked · ${activeIncidents} active incidents${unknown ? ` · ${unknown} unknown` : ""}`}
             </p>
           </div>
@@ -568,7 +465,9 @@ export function App() {
         </section>
         <div className="board-heading">
           <div>
-            {board.name && board.name !== "My status board" && <h2>{board.name}</h2>}
+            {board.name && board.name !== "My status board" && (
+              <h2>{board.name}</h2>
+            )}
             <span className="small muted">
               Public provider reports. Account-specific issues may differ.
             </span>
@@ -636,88 +535,107 @@ export function App() {
                   {group && <h3 className="group-title">{group}</h3>}
                   {visible
                     .filter((item) => item.monitor.group === group)
-                    .map(({ monitor, snapshot, name, failure, checking }) => (
-                      <article className="service" key={monitor.id}>
-                        <div className="service-heading">
-                          <div className="service-identity">
-                            <ProviderLogo id={monitor.id} custom={!!monitor.custom} />
-                            <div>
+                    .map(
+                      ({
+                        monitor,
+                        provider,
+                        snapshot,
+                        name,
+                        failure,
+                        checking,
+                      }) => (
+                        <article className="service" key={monitor.id}>
+                          <div className="service-heading">
+                            <div className="service-identity">
+                              <ProviderLogo
+                                id={monitor.id}
+                                custom={!!monitor.custom}
+                              />
+                              <div>
+                                <a
+                                  className="service-name"
+                                  href={provider?.statusUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {name}
+                                  <span
+                                    className="edit-hint"
+                                    aria-hidden="true"
+                                  >
+                                    <Icon name="external" size={13} />
+                                  </span>
+                                </a>
+                                <p className="service-scope">
+                                  {monitor.componentIds.length
+                                    ? `${monitor.componentIds.length} selected components`
+                                    : monitor.custom?.kind === "http"
+                                      ? "HTTPS endpoint check"
+                                      : "All products and regions"}
+                                  {snapshot?.latencyMs !== undefined
+                                    ? ` · ${snapshot.latencyMs} ms`
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              className="status-button"
+                              disabled={checking}
+                              aria-label={`${name}: ${checking ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
+                              onClick={() =>
+                                openReports(monitor, name, snapshot)
+                              }
+                            >
+                              <Badge
+                                state={snapshot?.state ?? "unknown"}
+                                checking={checking}
+                              />
+                            </button>
+                          </div>
+                          <HistoryBars
+                            name={name}
+                            history={histories[apiUrl("history", monitor)]}
+                            onSelect={(day) =>
+                              openReports(monitor, name, snapshot, day)
+                            }
+                          />
+                          {(failure || snapshot?.stale) && (
+                            <p className="feed-warning">
+                              {failure ?? snapshot?.warning}{" "}
+                              {snapshot?.fetchedAt &&
+                                `Last success: ${when(snapshot.fetchedAt)}.`}
+                            </p>
+                          )}
+                          {snapshot?.incidents
+                            .filter((i) => i.active || i.status === "scheduled")
+                            .slice(0, 2)
+                            .map((i) => (
                               <button
-                                className="service-name"
-                                onClick={() => setEditing(monitor)}
+                                className="incident-inline"
+                                key={i.id}
+                                onClick={() =>
+                                  setSelectedIncident({
+                                    ...i,
+                                    providerId: monitor.id,
+                                    providerName: name,
+                                  })
+                                }
                               >
-                                {name}
-                                <span className="edit-hint" aria-hidden="true">
+                                <Icon
+                                  name={
+                                    i.maintenance ? "maintenance" : "degraded"
+                                  }
+                                />
+                                <span>{i.title}</span>
+                                <span className="small">
+                                  {i.status.replaceAll("_", " ")}{" "}
                                   <Icon name="external" size={13} />
                                 </span>
                               </button>
-                              <p className="service-scope">
-                                {monitor.componentIds.length
-                                  ? `${monitor.componentIds.length} selected components`
-                                  : monitor.custom?.kind === "http"
-                                    ? "HTTPS endpoint check"
-                                    : "All products and regions"}
-                                {snapshot?.latencyMs !== undefined
-                                  ? ` · ${snapshot.latencyMs} ms`
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            className="status-button"
-                            disabled={checking}
-                            aria-label={`${name}: ${checking ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
-                            onClick={() => openReports(monitor, name, snapshot)}
-                          >
-                            <Badge
-                              state={snapshot?.state ?? "unknown"}
-                              checking={checking}
-                            />
-                          </button>
-                        </div>
-                        <HistoryBars
-                          name={name}
-                          history={histories[apiUrl("history", monitor)]}
-                          onSelect={(day) =>
-                            openReports(monitor, name, snapshot, day)
-                          }
-                        />
-                        {(failure || snapshot?.stale) && (
-                          <p className="feed-warning">
-                            {failure ?? snapshot?.warning}{" "}
-                            {snapshot?.fetchedAt &&
-                              `Last success: ${when(snapshot.fetchedAt)}.`}
-                          </p>
-                        )}
-                        {snapshot?.incidents
-                          .filter((i) => i.active || i.status === "scheduled")
-                          .slice(0, 2)
-                          .map((i) => (
-                            <button
-                              className="incident-inline"
-                              key={i.id}
-                              onClick={() =>
-                                setSelectedIncident({
-                                  ...i,
-                                  providerId: monitor.id,
-                                  providerName: name,
-                                })
-                              }
-                            >
-                              <Icon
-                                name={
-                                  i.maintenance ? "maintenance" : "degraded"
-                                }
-                              />
-                              <span>{i.title}</span>
-                              <span className="small">
-                                {i.status.replaceAll("_", " ")}{" "}
-                                <Icon name="external" size={13} />
-                              </span>
-                            </button>
-                          ))}
-                      </article>
-                    ))}
+                            ))}
+                        </article>
+                      ),
+                    )}
                 </section>
               ))}
               {!visible.length && (
@@ -728,15 +646,18 @@ export function App() {
                   <h3>
                     {items.length
                       ? "No services match"
-                      : "Start with your first service"}
+                      : "No services configured"}
                   </h3>
                   <p>
                     {items.length
                       ? "Try another search or turn off the attention filter."
-                      : "Databricks, Claude, Codex, and more are ready to add."}
+                      : "Edit services.json on the server and restart it to update this list."}
                   </p>
-                  <button className="secondary" onClick={() => setModal("add")}>
-                    Add services
+                  <button
+                    className="secondary"
+                    onClick={() => setModal("configuration")}
+                  >
+                    View configuration
                   </button>
                 </div>
               )}
@@ -757,8 +678,8 @@ export function App() {
                 </span>
               ))}
               <span>
-                Hatching indicates an unknown state or incomplete local coverage; incident colours can
-                still have gaps.
+                Hatching indicates an unknown state or incomplete local
+                coverage; incident colours can still have gaps.
               </span>
             </div>
           </>
@@ -834,9 +755,6 @@ export function App() {
                   Status changes and incident updates appear here while this
                   page is open.
                 </p>
-                <button className="secondary" onClick={notifications}>
-                  Enable browser alerts
-                </button>
               </div>
             )}
           </div>
@@ -877,58 +795,39 @@ export function App() {
           <SetupPanel board={board} />
         </Dialog>
       )}
-      {modal === "appearance" && (
-        <Dialog title="Appearance" close={() => setModal(null)} wide>
-          <AppearancePanel
-            appearance={board.appearance}
-            save={(appearance) => {
-              setBoard((old) => ({ ...old, appearance }));
-              setModal(null);
-              setMessage("Appearance saved to your board.");
-            }}
-          />
+      {modal === "configuration" && (
+        <Dialog title="Configured services" close={() => setModal(null)} wide>
+          <div className="dialog-body settings">
+            <p>
+              This dashboard is read-only. Everyone sees the services configured
+              by its owner.
+            </p>
+            <p>
+              To add or remove a service, edit the <code>services.json</code>{" "}
+              array on the server and restart it. Reload this page after the
+              restart.
+            </p>
+            <p>
+              Service IDs map to status pages in <code>server/catalog.ts</code>.
+              Select a service name on the board to open its status page.
+            </p>
+            <pre>
+              <code>{JSON.stringify(board.monitors, null, 2)}</code>
+            </pre>
+            <p className="small muted">
+              Live editing would require a database and an authenticated editing
+              API that you set up and maintain yourself. This app does not
+              provide them.
+            </p>
+            <a
+              href={`${GITHUB}#configure-services`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Configuration instructions <Icon name="external" />
+            </a>
+          </div>
         </Dialog>
-      )}
-      {modal === "add" && (
-        <AddServices
-          catalog={catalog}
-          monitors={board.monitors}
-          close={() => setModal(null)}
-          add={add}
-          addCustom={(monitor) =>
-            setBoard((old) => ({
-              ...old,
-              monitors: [...old.monitors, monitor],
-            }))
-          }
-          report={setMessage}
-        />
-      )}
-      {editing && (
-        <EditMonitor
-          monitor={editing}
-          snapshot={snapshots[apiUrl("status", editing)]}
-          name={
-            items.find((i) => i.monitor.id === editing.id)?.name ?? editing.id
-          }
-          close={() => setEditing(null)}
-          save={(monitor) => {
-            setBoard((old) => ({
-              ...old,
-              monitors: old.monitors.map((m) =>
-                m.id === monitor.id ? monitor : m,
-              ),
-            }));
-            setEditing(null);
-          }}
-          remove={() => {
-            setBoard((old) => ({
-              ...old,
-              monitors: old.monitors.filter((m) => m.id !== editing.id),
-            }));
-            setEditing(null);
-          }}
-        />
       )}
       {(selectedIncident || reportSelection) && (
         <Dialog
@@ -1012,590 +911,39 @@ export function App() {
           </div>
         </Dialog>
       )}
-      {modal === "settings" && (
-        <Dialog title="Your board" close={() => setModal(null)}>
-          <div className="dialog-body settings">
-            <h3>Notifications</h3>
-            <p className="small">
-              Browser alerts need this page to remain open. Use your own
-              collector for alerts after closing it.
-            </p>
-            <div className="flex">
-              <button className="secondary" onClick={notifications}>
-                {board.notifications
-                  ? "Check notification permission"
-                  : "Enable browser alerts"}
-              </button>
-              {board.notifications && (
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    setBoard((old) => ({ ...old, notifications: false }))
-                  }
-                >
-                  Turn off
-                </button>
-              )}
-            </div>
-            <label>
-              Alert level
-              <select
-                value={board.alertLevel}
-                onChange={(e) =>
-                  setBoard((old) => ({
-                    ...old,
-                    alertLevel: e.target.value as Board["alertLevel"],
-                  }))
-                }
-              >
-                <option value="all">All status and incident changes</option>
-                <option value="outage">Outages and recoveries</option>
-              </select>
-            </label>
-            <div className="divider" />
-            <h3>Keep or share your setup</h3>
-            <div className="flex">
-              <button
-                className="secondary"
-                onClick={() =>
-                  download("whatsgoingon-board.json", {
-                    ...board,
-                    notifications: false,
-                  })
-                }
-              >
-                Export board
-              </button>
-              <label className="button secondary">
-                Import board
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    try {
-                      if (file.size > 1_000_000) throw new Error();
-                      setBoard(readBoard(JSON.parse(await file.text())));
-                      setMessage("Board imported.");
-                      setModal(null);
-                    } catch {
-                      setMessage(
-                        "That file is not a valid board. Your existing board is unchanged.",
-                      );
-                    }
-                  }}
-                />
-              </label>
-              <button className="secondary" onClick={share}>
-                Copy share link
-              </button>
-            </div>
-            <p className="small muted">
-              A shared link contains the board name, services, component
-              selections, and any custom monitor URLs. Share only details you
-              want recipients to see.
-            </p>
-          </div>
-        </Dialog>
-      )}
       {modal === "integrations" && (
-        <Integrations
-          board={board}
-          close={() => setModal(null)}
-          notifications={notifications}
-        />
+        <Integrations board={board} close={() => setModal(null)} />
       )}
     </div>
   );
 }
 
-function AddServices({
-  catalog,
-  monitors,
-  close,
-  add,
-  addCustom,
-  report,
-}: {
-  catalog: Catalogue[];
-  monitors: Monitor[];
-  close: () => void;
-  add: (id: string) => void;
-  addCustom: (monitor: Monitor) => void;
-  report: (text: string) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [custom, setCustom] = useState(false);
-  const [url, setUrl] = useState("");
-  const [name, setName] = useState("");
-  const [kind, setKind] = useState<"statuspage" | "http">("statuspage");
-  const [keyword, setKeyword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const monitor: Monitor = {
-        id: "custom",
-        componentIds: [],
-        group: "",
-        custom: {
-          name,
-          url,
-          kind,
-          ...(keyword && kind === "http" ? { keyword } : {}),
-        },
-      };
-      const validated = readBoard({ ...defaultBoard(), monitors: [monitor] })
-        .monitors[0];
-      const snapshot = await get<Snapshot>(apiUrl("status", validated));
-      if (snapshot.stale)
-        throw new Error(
-          "Could not read this endpoint. For a status page, use its public homepage URL and check it supports the Statuspage JSON API.",
-        );
-      if (monitors.some((m) => m.id === snapshot.id))
-        throw new Error("This monitor is already on your board.");
-      addCustom({ ...validated, id: snapshot.id });
-      report("Custom monitor added.");
-      close();
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Could not add monitor.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog title="Add services" close={close}>
-      <div className="dialog-body">
-        <p className="muted">
-          Pick the services you use. Fine-tune products and regions from your
-          board.
-        </p>
-        <label className="search full">
-          <span className="sr-only">Search provider catalogue</span>
-          <Icon name="search" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Databricks, Claude, GitHub…"
-          />
-        </label>
-        <div className="catalogue">
-          {catalog
-            .filter((p) =>
-              `${p.name} ${p.category}`
-                .toLowerCase()
-                .includes(query.toLowerCase()),
-            )
-            .map((provider) => {
-              const added = monitors.some((m) => m.id === provider.id);
-              return (
-                <div className="catalogue-row" key={provider.id}>
-                  <div className="service-identity">
-                    <ProviderLogo id={provider.id} />
-                    <span>
-                      <strong>{provider.name}</strong>
-                      <small>{provider.category}</small>
-                    </span>
-                  </div>
-                  <button
-                    className={added ? "text-button" : "secondary"}
-                    disabled={added || monitors.length >= 40}
-                    onClick={() => add(provider.id)}
-                  >
-                    {added ? (
-                      <>
-                        <Icon name="check" /> Added
-                      </>
-                    ) : (
-                      "Add"
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          {!catalog.length && (
-            <p>
-              The catalogue is loading. Close and reopen this dialog if the
-              server was just started.
-            </p>
-          )}
-        </div>
-        <button
-          className="text-button"
-          onClick={() => setCustom((value) => !value)}
-          aria-expanded={custom}
-        >
-          <Icon name="plus" /> Add a custom status page or endpoint
-        </button>
-        {custom && (
-          <form onSubmit={submit} className="custom-form">
-            <label>
-              Name
-              <input
-                required
-                maxLength={80}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My service"
-              />
-            </label>
-            <label>
-              Monitor type
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value as typeof kind)}
-              >
-                <option value="statuspage">
-                  Statuspage-compatible public feed
-                </option>
-                <option value="http">Public HTTPS endpoint</option>
-              </select>
-            </label>
-            <label>
-              Public URL
-              <input
-                required
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://status.example.com"
-              />
-            </label>
-            {kind === "http" && (
-              <label>
-                Expected text (optional)
-                <input
-                  value={keyword}
-                  maxLength={200}
-                  onChange={(e) => setKeyword(e.target.value)}
-                />
-              </label>
-            )}
-            <p className="small muted">
-              Public URLs only. Do not enter tokens, credentials, or private
-              endpoints. Redirects are not followed.
-            </p>
-            {error && (
-              <p role="alert" className="error">
-                {error}
-              </p>
-            )}
-            <button
-              className="primary"
-              disabled={busy || monitors.length >= 40}
-            >
-              {busy ? "Checking…" : "Check and add"}
-            </button>
-          </form>
-        )}
-      </div>
-    </Dialog>
-  );
-}
-
-function EditMonitor({
-  monitor,
-  snapshot,
-  name,
-  close,
-  save,
-  remove,
-}: {
-  monitor: Monitor;
-  snapshot?: Snapshot;
-  name: string;
-  close: () => void;
-  save: (monitor: Monitor) => void;
-  remove: () => void;
-}) {
-  const [all, setAll] = useState<Snapshot | undefined>(
-    monitor.componentIds.length ? undefined : snapshot,
-  );
-  const [error, setError] = useState("");
-  const [selection, setSelection] = useState<Set<string> | null>(
-    monitor.componentIds.length ? new Set(monitor.componentIds) : null,
-  );
-  const [query, setQuery] = useState("");
-  const [region, setRegion] = useState("");
-  const [group, setGroup] = useState(monitor.group);
-  useEffect(() => {
-    const controller = new AbortController();
-    get<Snapshot>(
-      apiUrl("status", { ...monitor, componentIds: [] }),
-      controller.signal,
-    )
-      .then(setAll)
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setError("Could not load components. Try again after refreshing.");
-      });
-    return () => controller.abort();
-  }, [monitor.id]);
-  const components = all?.components ?? [];
-  const groups = [
-    ...new Set(components.map((c) => c.group).filter(Boolean)),
-  ].sort();
-  const shown = components.filter(
-    (c) =>
-      (!region || c.group === region) &&
-      `${c.name} ${c.group}`.toLowerCase().includes(query.toLowerCase()),
-  );
-  const chosen = selection ?? new Set(components.map((c) => c.id));
-  function toggle(id: string) {
-    const next = new Set(chosen);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelection(next);
-  }
-  return (
-    <Dialog title={name} close={close} wide>
-      <div className="dialog-body">
-        <div className="flex between">
-          <Badge state={snapshot?.state ?? "unknown"} />
-          {all?.statusUrl && (
-            <a href={all.statusUrl} target="_blank" rel="noreferrer">
-              Provider status <Icon name="external" />
-            </a>
-          )}
-        </div>
-        {all?.warning && <p className="small muted">{all.warning}</p>}
-        {all?.certificateExpiresAt && (
-          <p className="small">
-            TLS certificate expires {when(all.certificateExpiresAt)}.
-          </p>
-        )}
-        <label>
-          Board group (optional)
-          <input
-            value={group}
-            maxLength={60}
-            onChange={(e) => setGroup(e.target.value)}
-            placeholder="Data platform, AI tools, work…"
-          />
-        </label>
-        <h3>Products & regions</h3>
-        <div className="component-controls">
-          <label className="search">
-            <span className="sr-only">Search components</span>
-            <input
-              placeholder="Find a product or region…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          {groups.length > 0 && (
-            <select
-              aria-label="Filter components by region or group"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-            >
-              <option value="">All regions / groups</option>
-              {groups.map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </select>
-          )}
-        </div>
-        <div className="selection-actions">
-          <span>
-            {selection === null
-              ? "All components"
-              : `${selection.size} selected`}
-          </span>
-          <button className="text-button" onClick={() => setSelection(null)}>
-            Select all
-          </button>
-          <button
-            className="text-button"
-            onClick={() => setSelection(new Set(shown.map((c) => c.id)))}
-          >
-            Only these results
-          </button>
-        </div>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="component-list">
-          {shown.map((c) => (
-            <label className="component-row" key={c.id}>
-              <input
-                type="checkbox"
-                checked={chosen.has(c.id)}
-                onChange={() => toggle(c.id)}
-              />
-              <span>
-                <strong>{c.name}</strong>
-                {c.group && <small>{c.group}</small>}
-              </span>
-              <Badge state={c.state} />
-            </label>
-          ))}
-          {!all && !error && <p>Loading components…</p>}
-          {all && !shown.length && <p>No matching components.</p>}
-        </div>
-      </div>
-      <div className="dialog-footer">
-        <button className="danger text-button" onClick={remove}>
-          Remove service
-        </button>
-        <button
-          className="primary"
-          disabled={selection !== null && !selection.size}
-          onClick={() =>
-            save({
-              ...monitor,
-              group,
-              componentIds: selection === null ? [] : [...selection],
-            })
-          }
-        >
-          Save selection
-        </button>
-      </div>
-    </Dialog>
-  );
-}
-
-function Integrations({
-  board,
-  close,
-  notifications,
-}: {
-  board: Board;
-  close: () => void;
-  notifications: () => void;
-}) {
-  const [channel, setChannel] = useState("webhook");
-  const [destination, setDestination] = useState("");
-  const [routingKey, setRoutingKey] = useState("");
-  const [error, setError] = useState("");
-  const first = board.monitors[0] ?? defaultBoard().monitors[0];
-  const endpoint = new URL(apiUrl("status", first), location.origin).href;
-  const feed = new URL(
-    "/api/feed.xml?providers=" +
-      board.monitors
-        .filter((m) => !m.custom)
-        .map((m) => m.id)
-        .join(","),
-    location.origin,
-  ).href;
-  const embed = new URL(location.origin);
-  embed.search = "?embed=1";
-  embed.hash = shareBoard(board);
-  function exportConfig() {
-    try {
-      const url = new URL(destination);
-      if (url.protocol !== "https:" || url.username || url.password)
-        throw new Error();
-      if (!board.monitors.length || (channel === "pagerduty" && !routingKey))
-        throw new Error();
-      download("watch.config.json", {
-        monitors: board.monitors,
-        alertLevel: board.alertLevel,
-        destinations: [
-          {
-            type: channel,
-            url: destination,
-            ...(channel === "pagerduty" ? { routingKey } : {}),
-          },
-        ],
-      });
-      setDestination("");
-      setRoutingKey("");
-      setError("");
-    } catch {
-      setError(
-        "Add a service and enter your own HTTPS destination. PagerDuty also needs a routing key.",
-      );
-    }
-  }
+function Integrations({ board, close }: { board: Board; close: () => void }) {
+  const first = board.monitors[0];
+  const endpoint = first
+    ? new URL(apiUrl("status", first), location.origin).href
+    : "";
+  const feed = new URL("/api/feed.xml", location.origin).href;
+  const embed = new URL("/?embed=1", location.origin).href;
   return (
     <Dialog title="API & alerts" close={close} wide>
       <div className="dialog-body settings">
-        <h3>While you browse</h3>
         <p>
-          Browser alerts report changes while this page is open. Your browser
-          may pause background tabs.
+          The API and embeds use this server’s configured services and component
+          selections.
         </p>
-        <button className="secondary" onClick={notifications}>
-          Enable browser alerts
-        </button>
-        <div className="divider" />
-        <h3>Your own background alerts</h3>
-        <p>
-          Run this app on your own machine or server to keep watching after you
-          close the browser. Connect your own destination below. These values
-          stay in this dialog and the downloaded file; they are never sent to
-          this server.
-        </p>
-        <label>
-          Destination type
-          <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-            <option value="webhook">Generic JSON webhook</option>
-            <option value="slack">Slack incoming webhook</option>
-            <option value="discord">Discord webhook</option>
-            <option value="teams">Microsoft Teams workflow webhook</option>
-            <option value="pagerduty">PagerDuty Events API</option>
-          </select>
-        </label>
-        <label>
-          Your HTTPS webhook URL
-          <input
-            type="password"
-            autoComplete="off"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder="https://…"
-          />
-        </label>
-        {channel === "pagerduty" && (
+        {first && (
           <label>
-            Your routing key
+            Current status
             <input
-              type="password"
-              autoComplete="off"
-              value={routingKey}
-              onChange={(e) => setRoutingKey(e.target.value)}
+              readOnly
+              value={endpoint}
+              onFocus={(e) => e.target.select()}
             />
           </label>
         )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="secondary" onClick={exportConfig}>
-          Download collector configuration
-        </button>
-        <p className="small muted">
-          Keep this file private. It contains your destination credentials. The
-          repository ignores this filename.
-        </p>
-        <pre>
-          <code>WATCH_CONFIG=./watch.config.json npm start</code>
-        </pre>
-        <p className="small">
-          The collector establishes a baseline, then sends changes. Failed
-          deliveries retry with backoff.
-        </p>
-        <div className="divider" />
-        <h3>Use the data elsewhere</h3>
-        <p>Read-only JSON endpoints need no API key.</p>
         <label>
-          Current status
-          <input readOnly value={endpoint} onFocus={(e) => e.target.select()} />
-        </label>
-        <label>
-          Incident RSS feed (catalogue providers)
+          Incident RSS feed
           <input readOnly value={feed} onFocus={(e) => e.target.select()} />
         </label>
         <label>
@@ -1603,15 +951,27 @@ function Integrations({
           <textarea
             readOnly
             rows={3}
-            value={`<iframe title="Service status" src="${embed.href}" width="100%" height="700" loading="lazy"></iframe>`}
+            value={`<iframe title="Service status" src="${embed}" width="100%" height="700" loading="lazy"></iframe>`}
             onFocus={(e) => e.target.select()}
           />
         </label>
-        <p className="small muted">
-          A link or embed shares the configuration at the time you create it.
-          Recipients see fresh public status data; edits to your board do not
-          change existing links.
+        <p>
+          Links and embeds show the updated service list after the owner changes
+          the configuration, restarts the server, and viewers reload the page.
         </p>
+        <h3>Background alerts</h3>
+        <p>
+          The server owner can configure alerts in a private{" "}
+          <code>watch.config.json</code> file and restart with{" "}
+          <code>WATCH_CONFIG=./watch.config.json npm start</code>.
+        </p>
+        <a
+          href={`${GITHUB}#background-alerts`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Alert configuration instructions <Icon name="external" />
+        </a>
       </div>
     </Dialog>
   );

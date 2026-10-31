@@ -1,7 +1,11 @@
 import { defineConfig } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+const directory = mkdtempSync(join(tmpdir(), "whatsgoingon-e2e-"));
+const services = join(directory, "services.json");
+writeFileSync(services, JSON.stringify([{ id: "databricks" }]));
 
 export default defineConfig({
   testDir: "./tests/browser",
@@ -22,7 +26,9 @@ export default defineConfig({
     env: {
       PORT: "4175",
       HOST: "127.0.0.1",
-      DATA_DIR: mkdtempSync(join(tmpdir(), "whatsgoingon-e2e-")),
+      DATA_DIR: directory,
+      SERVICES_CONFIG: services,
+      WATCH_CONFIG: "",
     },
     timeout: 60_000,
   },

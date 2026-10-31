@@ -4,7 +4,9 @@ import { readBoard } from "../shared/board.ts";
 import type { Board } from "../shared/types.ts";
 
 export function SetupPanel({ board }: { board: Board }) {
-  const [name, setName] = useState(board.name === "My status board" ? "" : board.name);
+  const [name, setName] = useState(
+    board.name === "My status board" ? "" : board.name,
+  );
   const [target, setTarget] = useState("local");
   const [message, setMessage] = useState("");
   const text = useRef<HTMLTextAreaElement>(null);
@@ -22,7 +24,7 @@ export function SetupPanel({ board }: { board: Board }) {
 - Brand reference: use the supplied board colours unless I provide a public reference.
 - Dashboard destination: a separate sibling directory unless I name an existing dashboard checkout.
 
-## Starting board (extend with the agreed audit inventory)
+## Starting board (write its final monitors array to services.json)
 
 \`\`\`json
 ${JSON.stringify(configuration, null, 2)}
@@ -48,7 +50,8 @@ ${JSON.stringify(configuration, null, 2)}
         <p>
           Run this prompt from your organisation's codebase. Your coding agent
           audits its dependencies, reviews the monitoring list with you, then
-          starts a dashboard. Claude and Codex are included by default.
+          writes a services.json array, then starts a read-only dashboard.
+          Claude and Codex are included by default.
         </p>
         <div className="setup-fields">
           <label>
@@ -81,6 +84,8 @@ ${JSON.stringify(configuration, null, 2)}
           Your current board supplies starting services, component selections,
           groups, and colours. The audit adds dependencies it finds. Custom
           monitor URLs are included, so review the prompt before sharing it.
+          Later service changes require editing the array and restarting the
+          server.
         </p>
         <div className="setup-field">
           <label htmlFor="setup-prompt">Setup prompt</label>

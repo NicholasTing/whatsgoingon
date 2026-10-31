@@ -2,21 +2,25 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
 import { z } from "zod";
-import { providers } from "./catalog.ts";
+import { loadBoard } from "./config.ts";
 import { Collector } from "./collector.ts";
 import { Store } from "./store.ts";
 import { Alerts } from "./alerts.ts";
-import { monitorSchema, scoped } from "../shared/board.ts";
+import { scoped } from "../shared/board.ts";
 import { labels } from "../shared/types.ts";
-import type { Monitor } from "../shared/types.ts";
 
 const production = process.argv.includes("--production");
 const port = Number(process.env.PORT ?? 4173);
 const host = process.env.HOST ?? "127.0.0.1";
+const board = loadBoard(process.env.SERVICES_CONFIG ?? "services.json");
 const store = new Store(
   resolve(process.env.DATA_DIR ?? ".data", "status.sqlite"),
 );
 const collector = new Collector(store);
+const services = board.monitors.map((monitor) => ({
+  monitor,
+  provider: collector.register(monitor),
+}));
 const alerts = new Alerts(collector, process.env.WATCH_CONFIG);
 const vite = production
   ? null
@@ -38,26 +42,6 @@ const escapeXml = (value: string) =>
         "'": "&apos;",
       })[char]!,
   );
-function monitorFrom(url: URL, id: string): Monitor {
-  const customUrl = url.searchParams.get("url");
-  return monitorSchema.parse({
-    id,
-    componentIds: url.searchParams.getAll("component"),
-    group: "",
-    ...(customUrl
-      ? {
-          custom: {
-            name: url.searchParams.get("name") ?? "Custom service",
-            url: customUrl,
-            kind: url.searchParams.get("kind") ?? "statuspage",
-            ...(url.searchParams.has("keyword")
-              ? { keyword: url.searchParams.get("keyword") }
-              : {}),
-          },
-        }
-      : {}),
-  });
-}
 const server = createServer(async (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -85,7 +69,7 @@ const server = createServer(async (req, res) => {
       return json(
         {
           error:
-            "This API is read-only. Keep board configuration in your browser.",
+            "This API is read-only. Edit services.json on the server and restart it to change services.",
         },
         405,
       );
@@ -105,14 +89,33 @@ const server = createServer(async (req, res) => {
       activeRequests++;
       counted = true;
       if (url.pathname === "/api/health") return json({ ok: true });
+      if (
+        ["url", "kind", "name", "keyword", "component"].some((key) =>
+          url.searchParams.has(key),
+        )
+      )
+        return json(
+          {
+            error:
+              "Service configuration is read-only. Edit services.json on the server and restart it.",
+          },
+          400,
+        );
+      if (url.pathname === "/api/board") return json(board);
       if (url.pathname === "/api/catalog") {
         const query = (url.searchParams.get("q") ?? "").toLowerCase();
         return json({
-          providers: providers
-            .filter((p) =>
-              `${p.name} ${p.category}`.toLowerCase().includes(query),
+          providers: services
+            .filter(({ monitor, provider }) =>
+              `${monitor.custom?.name ?? provider.name} ${provider.category}`
+                .toLowerCase()
+                .includes(query),
             )
-            .map(({ feed, ...provider }) => provider),
+            .map(({ monitor, provider: { feed, ...provider } }) => ({
+              ...provider,
+              id: monitor.id,
+              name: monitor.custom?.name ?? provider.name,
+            })),
         });
       }
       const match = url.pathname.match(
@@ -120,11 +123,18 @@ const server = createServer(async (req, res) => {
       );
       if (match) {
         const [, kind, id] = match;
-        const monitor = monitorFrom(url, id);
-        if (!monitor.custom && !providers.some((p) => p.id === id))
-          return json({ error: "Unknown provider." }, 404);
-        const provider = collector.register(monitor);
-        const snapshot = scoped(await collector.read(provider), monitor);
+        const service = services.find(({ monitor }) => monitor.id === id);
+        if (!service)
+          return json(
+            { error: "Service is not configured on this server." },
+            404,
+          );
+        const { monitor, provider } = service;
+        const snapshot = {
+          ...scoped(await collector.read(provider), monitor),
+          id: monitor.id,
+          name: monitor.custom?.name ?? provider.name,
+        };
         if (kind === "status") return json(snapshot);
         if (kind === "history")
           return json(store.history(provider.id, monitor));
@@ -140,7 +150,7 @@ const server = createServer(async (req, res) => {
           "Cache-Control": "public, max-age=30",
         });
         return res.end(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="28" role="img" aria-label="${escapeXml(provider.name)}: ${labels[snapshot.state]}"><rect width="160" height="28" fill="#263b3a"/><rect x="160" width="120" height="28" fill="${color}"/><g fill="white" font-family="sans-serif" font-size="12" text-anchor="middle"><text x="80" y="18">${escapeXml(provider.name)}</text><text x="220" y="18">${labels[snapshot.state]}</text></g></svg>`,
+          `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="28" role="img" aria-label="${escapeXml(snapshot.name)}: ${labels[snapshot.state]}"><rect width="160" height="28" fill="#263b3a"/><rect x="160" width="120" height="28" fill="${color}"/><g fill="white" font-family="sans-serif" font-size="12" text-anchor="middle"><text x="80" y="18">${escapeXml(snapshot.name)}</text><text x="220" y="18">${labels[snapshot.state]}</text></g></svg>`,
         );
       }
       if (
@@ -149,16 +159,26 @@ const server = createServer(async (req, res) => {
       ) {
         const ids = z
           .array(z.string().max(80))
-          .min(1)
           .max(40)
           .parse(
-            (url.searchParams.get("providers") ?? "databricks").split(","),
+            url.searchParams.has("providers")
+              ? url.searchParams.get("providers")!.split(",")
+              : board.monitors.map((monitor) => monitor.id),
           );
-        const selected = ids.map((id) => providers.find((p) => p.id === id));
+        const selected = ids.map((id) =>
+          services.find(({ monitor }) => monitor.id === id),
+        );
         if (selected.some((p) => !p))
           return json({ error: "Unknown provider." }, 400);
         const snapshots = await Promise.all(
-          selected.map((p) => collector.read(p!)),
+          selected.map(async (service) => {
+            const { monitor, provider } = service!;
+            return {
+              ...scoped(await collector.read(provider), monitor),
+              id: monitor.id,
+              name: monitor.custom?.name ?? provider.name,
+            };
+          }),
         );
         const incidents = snapshots
           .flatMap((s) =>
@@ -250,7 +270,10 @@ async function poll() {
 }
 const interval = setInterval(poll, 60_000);
 server.listen(port, host, () => {
-  console.log(`whatsgoingon is ready at http://${host}:${port}`);
+  const address = server.address();
+  console.log(
+    `whatsgoingon is ready at http://${host}:${typeof address === "object" && address ? address.port : port}`,
+  );
   void poll();
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const)

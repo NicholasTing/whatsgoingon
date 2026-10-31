@@ -13,6 +13,7 @@ RUN npm ci --omit=dev && mkdir /data && chown node:node /data
 COPY --from=build /app/dist ./dist
 COPY server ./server
 COPY shared ./shared
+COPY services.json ./services.json
 USER node
 EXPOSE 4173
 CMD ["npm", "start"]

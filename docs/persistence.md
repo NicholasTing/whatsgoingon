@@ -6,15 +6,15 @@ Run one continuously available app instance with a persistent disk, and keep bac
 
 | Data | Location | How to keep it |
 | --- | --- | --- |
-| Board name, selected monitors, components, groups, appearance, and alert preferences | Browser local storage | Use **Board settings → Export board** and keep the JSON file. Use **Import board** to restore it. |
+| Selected services, component selections, and groups | `services.json` (or `SERVICES_CONFIG`) | Keep the file with your deployment configuration. Restart the server after editing it. |
 | Provider snapshots, incident reports, observation history, alert baselines, and queued deliveries | `status.sqlite` inside `DATA_DIR` | Retain the data volume and back it up. |
 | Background alert configuration | Your `WATCH_CONFIG` file | Keep a private copy outside the release directory, or mount it from your own secret store. Back it up separately. |
 
-Browser storage belongs to a browser profile and origin: scheme, hostname, and port. Clearing it or moving to a different origin does not transfer your board. Export before moving. A share link contains a copy of the board configuration; it is not server-side board storage or an ongoing sync.
+Every visitor uses the server's startup configuration. Old browser boards and shared configuration links are ignored, and their local storage is left intact. The browser's **Activity** list is held in memory and clears on reload; retained provider incident reports are separate.
 
-The server database does not contain browser boards. The browser's **Activity** list is held in memory and clears on reload; retained provider incident reports are separate.
+Configured monitors register at startup and continue collecting without an open browser. The static provider dictionary is in `server/catalog.ts`. History has rolling retention, so the database is not an indefinite archive.
 
-Custom monitor registrations are held in server memory. Opening a board registers them again after a restart. For continuous background checks of custom monitors, include them in your `WATCH_CONFIG`; that configuration also requires a notification destination. Catalogue providers resume automatically. History has rolling retention, so the database is not an indefinite archive.
+Service configuration does not use SQLite. Runtime editing is not included. If you want it, you must implement and maintain your own database and authenticated editing API; setting a database URL alone does not enable it.
 
 ## Keep data across deployments
 
@@ -60,7 +60,7 @@ The simplest backup procedure pauses collection briefly:
 1. Stop the app and confirm that no process is writing to its database. For Compose, use `docker compose -p whatsgoingon stop app`, substituting your existing project name.
 2. Archive the **whole data directory**, including any `status.sqlite-wal` and `status.sqlite-shm` files. Write the archive outside the data directory and repository. For a named volume, use Docker's [volume backup procedure](https://docs.docker.com/engine/storage/volumes/#back-up-a-volume) while the app remains stopped.
 3. Confirm that the archive command succeeded, then restart the app. For Compose, use `docker compose -p whatsgoingon start app`. Restart it even if the backup failed, and resolve the failed backup separately.
-4. Copy the archive to your own private storage on another system. Keep browser board exports and the private watch configuration as separate backups.
+4. Copy the archive to your own private storage on another system. Keep the services.json file and private watch configuration as separate backups.
 
 For a data directory you can access directly, this creates a private backup directory. Replace `/path/to/data` with the stopped app's actual `DATA_DIR`:
 
@@ -95,6 +95,6 @@ Treat the database and its backups as private: queued webhook destinations and p
 
 4. Review pending alert deliveries before starting. A restored backup can replay old notifications, and queued deliveries can be sent even when `WATCH_CONFIG` is unset. Keep outbound network access disabled during an isolated recovery rehearsal; omitting the config alone does not prevent delivery.
 5. Point `DATA_DIR` or the container's `/data` mount at the restored directory or volume. Start the app when you are ready to resume collection and delivery. Check `/api/health` and confirm that expected historical dates and incidents appear on the board.
-6. Import the browser board export if needed. Restore your private watch configuration separately and reopen boards to register custom monitors that are not in that configuration.
+6. Restore your services.json file and private watch configuration separately, then restart the server and reload the page. All configured monitors register at startup.
 
 Rehearse recovery on a separate directory or volume before relying on backups. An integrity check confirms database structure, not that the backup contains all the history you expected. Observations collected after the backup are lost unless you have a newer recoverable copy; gaps while the app was stopped cannot be reconstructed by restoring an older database.

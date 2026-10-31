@@ -129,25 +129,20 @@ export async function collect(
 export class Collector {
   store: Store;
   pending = new Map<string, Promise<Snapshot>>();
-  dynamic = new Map<
-    string,
-    { provider: Provider; keyword?: string; lastUsed: number }
-  >();
+  registered = new Map<string, { provider: Provider; keyword?: string }>();
   constructor(store: Store) {
     this.store = store;
   }
   register(monitor: Monitor): Provider {
     const known = providers.find((p) => p.id === monitor.id);
-    if (known && !monitor.custom) return known;
-    const provider = customProvider(monitor);
-    if (!this.dynamic.has(provider.id) && this.dynamic.size >= 100)
+    const provider = known && !monitor.custom ? known : customProvider(monitor);
+    if (!this.registered.has(provider.id) && this.registered.size >= 100)
       throw new Error(
-        "Custom monitor capacity reached on this instance. Try again later.",
+        "Monitor capacity reached. Reduce the configured service or alert lists.",
       );
-    this.dynamic.set(provider.id, {
+    this.registered.set(provider.id, {
       provider,
       keyword: monitor.custom?.keyword,
-      lastUsed: Date.now(),
     });
     return provider;
   }
@@ -161,7 +156,7 @@ export class Collector {
       provider,
       old,
       getJson,
-      this.dynamic.get(provider.id)?.keyword,
+      this.registered.get(provider.id)?.keyword,
     )
       .then((snapshot) => {
         this.store.save(snapshot);
@@ -184,13 +179,7 @@ export class Collector {
     };
   }
   async poll(): Promise<void> {
-    for (const [id, item] of this.dynamic)
-      if (Date.now() - item.lastUsed > 24 * 60 * 60_000)
-        this.dynamic.delete(id);
-    const all = [
-      ...providers,
-      ...[...this.dynamic.values()].map((item) => item.provider),
-    ];
+    const all = [...this.registered.values()].map((item) => item.provider);
     for (let index = 0; index < all.length; index += 4)
       await Promise.allSettled(
         all.slice(index, index + 4).map((provider) => this.read(provider)),

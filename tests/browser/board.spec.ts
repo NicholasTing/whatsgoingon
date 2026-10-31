@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
-import type { Incident } from "../../shared/types.ts";
+import type { Board, Incident } from "../../shared/types.ts";
 import type { Page } from "@playwright/test";
 import { defaultBoard, shareBoard } from "../../shared/board.ts";
 import { presets } from "../../shared/appearance.ts";
@@ -58,54 +58,65 @@ async function mockFeeds(page: Page, incidents: Incident[] = []) {
   );
 }
 
-test("local logos render throughout the catalogue and themed boards with an accessible custom fallback", async ({
+async function mockBoard(page: Page, board: Board) {
+  await page.route("**/api/board", (route) => route.fulfill({ json: board }));
+  await page.route("**/api/catalog", (route) =>
+    route.fulfill({
+      json: {
+        providers: board.monitors.map((monitor) => ({
+          ...(providers.find((provider) => provider.id === monitor.id) ??
+            providers[0]),
+          id: monitor.id,
+          ...(monitor.custom
+            ? { name: monitor.custom.name, statusUrl: monitor.custom.url }
+            : {}),
+        })),
+      },
+    }),
+  );
+}
+
+test("configured logos and status links remain accessible on desktop and mobile", async ({
   page,
 }, testInfo) => {
   const board = {
     ...defaultBoard(),
     monitors: [
-      { id: "databricks", componentIds: ["sql:au"], group: "" },
-      { id: "claude", componentIds: [], group: "" },
-      { id: "codex", componentIds: ["sql:au"], group: "" },
+      ...providers.map((provider) => ({
+        id: provider.id,
+        componentIds: [],
+        group: "",
+      })),
       {
-        id: "github",
-        componentIds: ["sql:au"],
+        id: "custom-api",
+        componentIds: [],
         group: "",
         custom: {
           name: "Custom API",
           url: "https://example.com",
-          kind: "http",
+          kind: "http" as const,
         },
       },
     ],
   };
-  await page.addInitScript(
-    (value) =>
-      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(value)),
-    board,
-  );
   await mockFeeds(page);
-  await page.goto("/");
-  await expect(page.locator(".service")).toHaveCount(4);
-  await expect(page.locator(".brand img")).toHaveAttribute(
-    "src",
-    "/favicon.svg",
-  );
-  await expect(page.locator(".service .provider-logo img")).toHaveCount(3);
-  await expect(
-    page
-      .locator(".service")
-      .filter({ hasText: "Custom API" })
-      .locator(".provider-logo svg"),
-  ).toBeVisible();
-
-  for (const preset of ["Slate", "Midnight"]) {
-    await page.getByRole("button", { name: "Appearance", exact: true }).click();
-    await page.getByRole("button", { name: preset }).click();
-    await page.getByRole("button", { name: "Apply appearance" }).click();
-    await page.getByRole("button", { name: "Dismiss message" }).click();
+  for (const preset of [presets[0], presets[2]]) {
+    await mockBoard(page, { ...board, appearance: preset.appearance });
+    await page.goto("/");
+    await expect(page.locator(".service")).toHaveCount(providers.length + 1);
+    for (const provider of providers) {
+      await expect(
+        page.getByRole("link", { name: provider.name, exact: true }),
+      ).toHaveAttribute("href", provider.statusUrl);
+    }
+    await expect(page.locator(".service .provider-logo img")).toHaveCount(
+      providers.length,
+    );
     await expect(
-      page.getByRole("button", { name: "Databricks (AWS)", exact: true }),
+      page
+        .locator(".service")
+        .filter({ hasText: "Custom API" })
+        .locator(".provider-logo svg"),
     ).toBeVisible();
     await expect
       .poll(() =>
@@ -113,10 +124,10 @@ test("local logos render throughout the catalogue and themed boards with an acce
           .locator("img")
           .evaluateAll((images) =>
             images.every(
-              (image) =>
-                image instanceof HTMLImageElement &&
-                image.complete &&
-                image.naturalWidth > 0,
+              (img) =>
+                img instanceof HTMLImageElement &&
+                img.complete &&
+                img.naturalWidth > 0,
             ),
           ),
       )
@@ -129,7 +140,7 @@ test("local logos render throughout the catalogue and themed boards with an acce
       ).violations,
     ).toEqual([]);
     await page.screenshot({
-      path: testInfo.outputPath(`logos-${preset.toLowerCase()}-desktop.png`),
+      path: testInfo.outputPath(`configured-${preset.name}-desktop.png`),
       fullPage: true,
     });
     for (const width of [390, 320]) {
@@ -139,33 +150,98 @@ test("local logos render throughout the catalogue and themed boards with an acce
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBe(true);
-      await page.screenshot({
-        path: testInfo.outputPath(`logos-${preset.toLowerCase()}-${width}.png`),
-        fullPage: true,
-      });
     }
+    await page.screenshot({
+      path: testInfo.outputPath(`configured-${preset.name}-mobile.png`),
+      fullPage: true,
+    });
     await page.setViewportSize({ width: 1280, height: 900 });
   }
+});
 
-  await page.getByRole("button", { name: "Add services", exact: true }).click();
-  await expect(page.locator(".catalogue-row .provider-logo img")).toHaveCount(
-    providers.length,
+test("saved boards and old share links cannot change configured services or scope", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const board = {
+    ...defaultBoard(),
+    monitors: [{ id: "databricks", componentIds: ["sql:au"], group: "Data" }],
+  };
+  const oldBoard = {
+    ...defaultBoard(),
+    monitors: [{ id: "claude", componentIds: [], group: "" }],
+  };
+  await page.addInitScript(
+    (value) =>
+      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(value)),
+    oldBoard,
   );
-  await expect
-    .poll(() =>
-      page
-        .locator(".catalogue-row img")
-        .evaluateAll((images) =>
-          images.every(
-            (image) =>
-              image instanceof HTMLImageElement &&
-              image.complete &&
-              image.naturalWidth > 0 &&
-              new URL(image.src).origin === location.origin,
-          ),
-        ),
-    )
-    .toBe(true);
+  await mockBoard(page, board);
+  await mockFeeds(page);
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/")) requests.push(request.url());
+  });
+  await page.goto(`/${shareBoard(oldBoard)}`);
+  await expect(page.locator(".service")).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: "Databricks (AWS)", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "All tracked services operational" }),
+  ).toBeVisible();
+  for (const name of [
+    "Add services",
+    "Board settings",
+    "Appearance",
+    "Remove service",
+    "Import board",
+  ]) {
+    await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+      0,
+    );
+  }
+  await page.evaluate(
+    (hash) => {
+      location.hash = hash;
+    },
+    shareBoard({ ...oldBoard, name: "Changed" }),
+  );
+  await page.reload();
+  await expect(page.locator(".service")).toHaveCount(1);
+  await page.getByRole("button", { name: "Share board", exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    new URL("/", page.url()).href,
+  );
+  expect(
+    requests.every(
+      (url) => !url.includes("component=") && !url.includes("/claude"),
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!),
+    ),
+  ).toEqual(oldBoard);
+});
+
+test("configuration instructions require a server restart and are keyboard accessible", async ({
+  page,
+}, testInfo) => {
+  await mockFeeds(page);
+  await page.goto("/");
+  const button = page.getByRole("button", {
+    name: "Configured services",
+    exact: true,
+  });
+  await button.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("services.json");
+  await expect(dialog).toContainText("restart it");
+  await expect(dialog).toContainText("set up and maintain yourself");
+  await expect(dialog.locator("pre")).toContainText('"databricks"');
+  await expect(dialog.locator("input, textarea, select")).toHaveCount(0);
   expect(
     (
       await new AxeBuilder({ page })
@@ -173,298 +249,76 @@ test("local logos render throughout the catalogue and themed boards with an acce
         .analyze()
     ).violations,
   ).toEqual([]);
-  await page.screenshot({
-    path: testInfo.outputPath("logos-catalogue-desktop.png"),
-  });
   await page.setViewportSize({ width: 320, height: 844 });
-  expect(
-    await page
-      .getByRole("dialog")
-      .evaluate((element) => element.scrollWidth <= element.clientWidth),
-  ).toBe(true);
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
   await page.screenshot({
-    path: testInfo.outputPath("logos-catalogue-mobile.png"),
+    path: testInfo.outputPath("configuration-mobile.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Add services", exact: true }),
-  ).toBeFocused();
-});
-
-test("Databricks component scope saves, reloads, and shares without affecting another browser", async ({
-  page,
-  browser,
-}) => {
-  await mockFeeds(page);
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "1 service needs attention" }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Databricks (AWS)", exact: true })
-    .click();
-  await page
-    .getByLabel("Filter components by region or group")
-    .selectOption("AP Southeast 2");
-  await page.getByRole("button", { name: "Only these results" }).click();
-  await page.getByRole("button", { name: "Save selection" }).click();
-  await expect(page.getByText("1 selected components")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "All tracked services operational" }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("1 selected components")).toBeVisible();
-  const board = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!),
-  );
-  const recipient = await browser.newPage();
-  await mockFeeds(recipient);
-  await recipient.goto(
-    "/#board=" +
-      encodeURIComponent(
-        JSON.stringify({
-          ...board,
-          name: "My team board",
-          notifications: false,
-        }),
-      ),
-  );
-  await expect(
-    recipient.getByRole("heading", { name: "My team board" }),
-  ).toBeVisible();
-  await recipient.getByRole("button", { name: "Databricks (AWS)", exact: true }).click();
-  await recipient.getByRole("button", { name: "Remove service" }).click();
-  await expect(recipient.locator(".service")).toHaveCount(0);
-  await expect(page.locator(".service")).toHaveCount(1);
-  await expect(page.getByText("1 selected components")).toBeVisible();
-  await recipient.close();
-});
-
-test("users can add Claude and Codex, search the board, and navigate daily bars by keyboard", async ({
-  page,
-}) => {
-  await mockFeeds(page);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Add services" }).first().click();
-  for (const name of ["Claude", "Codex"])
-    await page
-      .locator(".catalogue-row")
-      .filter({ hasText: name })
-      .getByRole("button", { name: "Add", exact: true })
-      .click();
-  await page.getByRole("button", { name: "Close dialog" }).click();
-  await expect(page.locator(".service")).toHaveCount(3);
-  await page.getByLabel("Search overview").fill("Codex");
-  await expect(page.locator(".service")).toHaveCount(1);
-  const bar = page.getByRole("slider");
-  await bar.focus();
-  await page.keyboard.press("Home");
-  await expect(bar).toHaveAttribute("aria-valuenow", "1");
-  await page.keyboard.press("ArrowRight");
-  await expect(bar).toHaveAttribute("aria-valuenow", "2");
-});
-
-test("webhook credentials only enter the user download, never requests, browser storage, or shared state", async ({
-  page,
-}) => {
-  await mockFeeds(page);
-  await page.goto("/");
-  const marker = "user-owned-test-destination";
-  const transmitted: string[] = [];
-  page.on("request", (request) =>
-    transmitted.push(request.url() + (request.postData() ?? "")),
-  );
-  await page.getByRole("button", { name: "API & alerts" }).click();
-  await page
-    .getByLabel("Your HTTPS webhook URL")
-    .fill(`https://example.com/${marker}`);
-  const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download collector configuration" })
-    .click();
-  const download = await downloadPromise;
-  const contents = await readFile((await download.path())!, "utf8");
-  expect(contents).toContain(marker);
-  expect(
-    await page.evaluate(() => JSON.stringify(localStorage) + location.href),
-  ).not.toContain(marker);
-  expect(transmitted.join("\n")).not.toContain(marker);
-  await expect(page.getByLabel("Your HTTPS webhook URL")).toHaveValue("");
-});
-
-test("overview and component selection pass automated accessibility checks and fit mobile", async ({
-  page,
-}) => {
-  await mockFeeds(page);
-  await page.goto("/");
-  await expect(page.locator(".service")).toHaveCount(1);
-  const overview = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(overview.violations).toEqual([]);
-  await page
-    .getByRole("button", { name: "Databricks (AWS)", exact: true })
-    .click();
-  await expect(
-    page.getByText("AP Southeast 2", { exact: true }).last(),
-  ).toBeVisible();
-  const dialog = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(dialog.violations).toEqual([]);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).not.toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Databricks (AWS)", exact: true }),
-  ).toBeFocused();
-  for (const width of [390, 320]) {
-    await page.setViewportSize({ width, height: 844 });
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-    ).toBe(true);
-    await page.getByRole("button", { name: "Databricks (AWS)", exact: true }).click();
-    await expect(page.locator(".component-row .badge").first()).toBeVisible();
-    await expect(page.locator(".component-row .badge .icon")).toHaveCount(0);
-    expect(await page.locator(".component-row .badge").first().evaluate(
-      (badge) => getComputedStyle(badge, "::before").width,
-    )).toBe("6px");
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.keyboard.press("Escape");
-  }
+  await expect(button).toBeFocused();
 });
 
-test("API blocks private targets, unknown providers and mutations without needing sign-in", async ({
-  request,
-}) => {
-  expect((await request.get("/api/health")).status()).toBe(200);
-  expect(
-    (await request.post("/api/status/databricks", { data: {} })).status(),
-  ).toBe(405);
-  expect((await request.get("/api/status/not-a-provider")).status()).toBe(404);
-  const blocked = await request.get(
-    "/api/status/custom?url=https%3A%2F%2F127.0.0.1&kind=http&name=Private",
-  );
-  expect(blocked.status()).toBe(400);
-});
-
-test("appearance validates colours, persists, exports, imports, and shares", async ({
+test("empty and unavailable server configuration never falls back to a browser board", async ({
   page,
-  browser,
 }) => {
   await mockFeeds(page);
+  await mockBoard(page, { ...defaultBoard(), monitors: [] });
   await page.goto("/");
-  await page.getByRole("button", { name: "Appearance", exact: true }).click();
-  await page.getByRole("button", { name: "Midnight" }).click();
-  await page.getByLabel("Accent hex colour").fill("#19212e");
+  await expect(page.locator(".service")).toHaveCount(0);
   await expect(
-    page.getByText("Accent needs more contrast.", { exact: false }),
+    page.getByRole("heading", { name: "No services configured", level: 2 }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Apply appearance" }),
-  ).toBeDisabled();
-  await page.getByLabel("Accent hex colour").fill("#b8d2ff");
-  await page.getByRole("button", { name: "Apply appearance" }).click();
-  await expect(page.locator(".app-shell")).toHaveCSS(
-    "background-color",
-    "rgb(16, 21, 30)",
+  await page.route("**/api/board", (route) =>
+    route.fulfill({ status: 500, json: { error: "Unavailable" } }),
   );
   await page.reload();
-  await expect(page.locator(".app-shell")).toHaveCSS("--accent", "#b8d2ff");
-  await page.getByRole("button", { name: "Board settings" }).click();
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export board" }).click();
-  const download = await downloadPromise;
-  const contents = await readFile((await download.path())!, "utf8");
-  expect(JSON.parse(contents).appearance.accent).toBe("#b8d2ff");
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Appearance", exact: true }).click();
-  await page.getByRole("button", { name: "Reset to default" }).click();
-  await page.getByRole("button", { name: "Apply appearance" }).click();
-  await expect(page.locator(".app-shell")).toHaveCSS(
-    "background-color",
-    "rgb(16, 21, 30)",
+  await expect(page.getByRole("alert")).toContainText(
+    "configured services could not be loaded",
   );
-  await page.getByRole("button", { name: "Board settings" }).click();
-  await page.getByLabel("Import board").setInputFiles({
-    name: "board.json",
-    mimeType: "application/json",
-    buffer: Buffer.from(contents),
+  await expect(page.locator(".service")).toHaveCount(0);
+});
+
+test("configured services can still be searched and API links contain no client configuration", async ({
+  page,
+}, testInfo) => {
+  await mockBoard(page, {
+    ...defaultBoard(),
+    monitors: [
+      { id: "databricks", componentIds: [], group: "Data" },
+      { id: "claude", componentIds: [], group: "AI" },
+      { id: "codex", componentIds: [], group: "AI" },
+    ],
   });
-  await expect(page.locator(".app-shell")).toHaveCSS("--accent", "#b8d2ff");
-  const recipient = await browser.newPage();
-  await mockFeeds(recipient);
-  await recipient.goto("/#board=" + encodeURIComponent(contents));
-  await expect(recipient.locator(".app-shell")).toHaveCSS(
-    "--accent",
-    "#b8d2ff",
-  );
-  await recipient.close();
-});
-
-test("appearance and feedback are accessible in both themes and on mobile", async ({
-  page,
-}) => {
   await mockFeeds(page);
   await page.goto("/");
+  await expect(page.locator(".service")).toHaveCount(3);
   await expect(
-    page.getByRole("link", { name: "Request a feature" }),
-  ).toHaveAttribute(
-    "href",
-    "https://github.com/NicholasTing/whatsgoingon/issues/new?template=feature-request.yml",
+    page.getByRole("button", {
+      name: "Databricks (AWS): Outage. View reports",
+    }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("configured-board.png"),
+    fullPage: true,
+  });
+  await page.getByRole("textbox", { name: "Search overview" }).fill("AI");
+  await expect(page.locator(".service")).toHaveCount(2);
+  await page.getByRole("button", { name: "API & alerts", exact: true }).click();
+  await expect(page.getByLabel("Current status")).toHaveValue(
+    /\/api\/status\/databricks$/,
   );
+  await expect(page.getByLabel("Incident RSS feed")).toHaveValue(
+    /\/api\/feed.xml$/,
+  );
+  await expect(page.getByLabel("Embed this board")).not.toHaveValue(/#board=/);
   await expect(
-    page.getByRole("link", { name: "Report a bug" }),
-  ).toHaveAttribute(
-    "href",
-    "https://github.com/NicholasTing/whatsgoingon/issues/new?template=bug-report.yml",
-  );
-  for (const preset of ["Slate", "Midnight"]) {
-    await page.getByRole("button", { name: "Appearance", exact: true }).click();
-    await page.getByRole("button", { name: preset }).click();
-    await page.getByRole("button", { name: "Apply appearance" }).click();
-    await expect(page.locator(".service")).toHaveCount(1);
-    expect(
-      (
-        await new AxeBuilder({ page })
-          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-          .analyze()
-      ).violations,
-    ).toEqual([]);
-    await page.getByRole("button", { name: "Appearance", exact: true }).click();
-    expect(
-      (
-        await new AxeBuilder({ page })
-          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-          .analyze()
-      ).violations,
-    ).toEqual([]);
-    for (const width of [390, 320]) {
-      await page.setViewportSize({ width, height: 844 });
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
-      expect(
-        await page
-          .getByRole("dialog")
-          .evaluate((element) => element.scrollWidth <= element.clientWidth),
-      ).toBe(true);
-    }
-    await page.getByRole("button", { name: "Forest" }).click();
-    await page.keyboard.press("Escape");
-    await expect(
-      page.getByRole("button", { name: "Appearance", exact: true }),
-    ).toBeFocused();
-    await expect(page.locator(".app-shell")).toHaveCSS(
-      "background-color",
-      preset === "Midnight" ? "rgb(16, 21, 30)" : "rgb(245, 246, 248)",
-    );
-    await page.setViewportSize({ width: 1280, height: 900 });
-  }
+    page
+      .getByRole("dialog")
+      .locator("input:not([readonly]), textarea:not([readonly])"),
+  ).toHaveCount(0);
 });
 
 test("setup prompt copies the audit instructions and seed board without changing it or including unexpected credentials", async ({
@@ -481,10 +335,12 @@ test("setup prompt copies the audit instructions and seed board without changing
       { id: "claude", componentIds: [], group: "AI" },
     ],
   };
-  await page.addInitScript(
-    (value) =>
-      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(value)),
-    { ...board, webhook: "never-copy-this-test-secret" },
+  await mockBoard(page, board);
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "whatsgoingon.board.v1",
+      JSON.stringify({ webhook: "never-copy-this-test-secret" }),
+    ),
   );
   await mockFeeds(page);
   await page.goto("/");
@@ -525,7 +381,7 @@ test("setup prompt copies the audit instructions and seed board without changing
     await page.evaluate(() =>
       JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!),
     ),
-  ).toEqual(board);
+  ).toEqual({ webhook: "never-copy-this-test-secret" });
 });
 
 test("setup prompt has a manual-copy fallback and fits an accessible mobile dialog", async ({
@@ -604,14 +460,10 @@ test("history opens scoped UTC reports by pointer and keyboard, with an honest e
   page,
 }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-10-31T12:00:00Z"));
-  await page.addInitScript(
-    (board) =>
-      localStorage.setItem("whatsgoingon.board.v1", JSON.stringify(board)),
-    {
-      ...defaultBoard(),
-      monitors: [{ id: "databricks", componentIds: ["sql:au"], group: "" }],
-    },
-  );
+  await mockBoard(page, {
+    ...defaultBoard(),
+    monitors: [{ id: "databricks", componentIds: ["sql:au"], group: "" }],
+  });
   await mockFeeds(page, [
     report({}),
     report({
@@ -742,74 +594,28 @@ test("current status and inline maintenance open reports; local-only outages exp
   );
 });
 
-
-test("new boards start dark with readable status labels and matching previews", async ({ page }, testInfo) => {
-  await mockFeeds(page);
-  await page.goto("/");
-  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(16, 21, 30)");
-  await page.getByRole("button", { name: "Add services" }).first().click();
-  for (const name of ["Claude", "Codex"]) {
-    await page.locator(".catalogue-row").filter({ hasText: name })
-      .getByRole("button", { name: "Add", exact: true }).click();
-  }
-  await page.keyboard.press("Escape");
-  await expect(page.locator(".service-heading .badge")).toHaveText(["Outage", "Outage", "Outage"]);
-  await page.getByRole("button", { name: "Dismiss message" }).click();
-  await page.screenshot({ path: testInfo.outputPath("dark-dashboard.png"), fullPage: true });
-  await page.setViewportSize({ width: 320, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("dark-mobile.png"), fullPage: true });
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.getByRole("button", { name: "Appearance", exact: true }).click();
-  await expect(page.locator(".preview-statuses .badge")).toHaveText(["Operational", "Degraded", "Outage", "Maintenance"]);
-  expect(await page.locator(".preview-statuses .badge").first().evaluate(el => getComputedStyle(el, "::before").width)).toBe("6px");
-  await page.screenshot({ path: testInfo.outputPath("dark-preview.png") });
-});
-
-test("board names are optional in fresh boards, settings, imports and setup", async ({ page }, testInfo) => {
-  await mockFeeds(page);
-  await page.goto("/");
-  await expect(page.locator(".service")).toHaveCount(1);
-  await expect(page.locator(".board-heading h2")).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("unnamed-board.png"), fullPage: true });
-  await page.getByRole("button", { name: "Board settings" }).click();
-  await expect(page.getByLabel("Board name", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Saved in this browser.", { exact: false })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("board-settings.png") });
-  for (const name of ["My status board", "Team dashboard"]) {
-    await page.getByLabel("Import board").setInputFiles({
-      name: "board.json", mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify({ ...defaultBoard(), name })),
-    });
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!).name)).toBe(name);
-    await page.keyboard.press("Escape");
-    await page.reload();
-    await expect(page.locator(".board-heading h2")).toHaveCount(name === "My status board" ? 0 : 1);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("whatsgoingon.board.v1")!).name)).toBe(name);
-    await page.getByRole("button", { name: "Board settings" }).click();
-  }
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Set up your own", exact: true }).click();
-  await page.getByLabel("Organisation or page name (optional)").fill("");
-  const prompt = await page.getByLabel("Setup prompt", { exact: true }).inputValue();
-  expect(JSON.parse(prompt.split("```json\n")[1].split("\n```")[0]).name).toBe("");
-  await expect(page.getByRole("button", { name: "Copy setup prompt", exact: true })).toBeEnabled();
-});
-
-
-test("unavailable history is distinct from a returned history with no records", async ({ page }) => {
+test("unavailable history is distinct from a returned history with no records", async ({
+  page,
+}) => {
   await mockFeeds(page);
   let unavailable = true;
   await page.route("**/api/history/**", (route) =>
     unavailable ? route.abort() : route.fallback(),
   );
   await page.goto("/");
-  await expect(page.locator(".history-description")).toHaveText("Recorded history is unavailable");
+  await expect(page.locator(".history-description")).toHaveText(
+    "Recorded history is unavailable",
+  );
   await page.getByRole("slider").focus();
-  await expect(page.getByRole("slider")).toHaveAttribute("aria-valuetext", "Recorded history is unavailable");
+  await expect(page.getByRole("slider")).toHaveAttribute(
+    "aria-valuetext",
+    "Recorded history is unavailable",
+  );
   unavailable = false;
   await page.reload();
-  await expect(page.locator(".history-description")).toHaveText("No local checks or provider reports recorded yet");
+  await expect(page.locator(".history-description")).toHaveText(
+    "No local checks or provider reports recorded yet",
+  );
 });
 
 test("history explains missing local checks separately from provider reports on hover and focus", async ({
@@ -869,16 +675,25 @@ test("history explains missing local checks separately from provider reports on 
   );
   await expect(bars.locator("rect.bar").nth(87)).toHaveAttribute("fill", /url/);
   await page.keyboard.press("ArrowLeft");
-  await expect(bars).toHaveAttribute("aria-valuetext", /Unknown.*Near-complete local coverage/);
+  await expect(bars).toHaveAttribute(
+    "aria-valuetext",
+    /Unknown.*Near-complete local coverage/,
+  );
   await expect(bars.locator("rect.bar").nth(86)).toHaveAttribute("fill", /url/);
-  await expect(page.getByText(/Hatching indicates an unknown state or incomplete local coverage/)).toBeVisible();
+  await expect(
+    page.getByText(
+      /Hatching indicates an unknown state or incomplete local coverage/,
+    ),
+  ).toBeVisible();
   const box = (await bars.boundingBox())!;
   await bars.hover({ position: { x: (box.width * 88.5) / 90, y: 16 } });
   await expect(page.locator(".history-description")).toContainText(
     "2 provider reports",
   );
   await page.mouse.move(0, 0);
-  await expect(page.locator(".history-description")).toContainText("2 provider reports");
+  await expect(page.locator(".history-description")).toContainText(
+    "2 provider reports",
+  );
   await page.setViewportSize({ width: 320, height: 844 });
   expect(
     await page.evaluate(
@@ -891,132 +706,174 @@ test("history explains missing local checks separately from provider reports on 
   });
 });
 
-
-test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({ page }, testInfo) => {
+test("compact navigation keeps setup and feedback accessible on desktop and mobile", async ({
+  page,
+}, testInfo) => {
   await mockFeeds(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Service status", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Service status", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("No account. Your board.")).toHaveCount(0);
   await expect(page.getByText("Every service. One view.")).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("header-desktop.png"), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath("header-desktop.png"),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 320, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("header-mobile.png"), fullPage: true });
-  const setup = page.getByRole("button", { name: "Set up your own", exact: true });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("header-mobile.png"),
+    fullPage: true,
+  });
+  const setup = page.getByRole("button", {
+    name: "Set up your own",
+    exact: true,
+  });
   await setup.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(setup).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Request a feature" })).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Request a feature" }),
+  ).toBeFocused();
 });
 
-
-test("changing component scope does not reuse history when the new request fails", async ({ page }) => {
-  await mockFeeds(page);
-  await page.route("**/api/history/**", route => {
-    if (new URL(route.request().url()).searchParams.has("component")) return route.abort();
-    return route.fulfill({ json: {
-      days: Array.from({ length: 90 }, (_, i) => ({
-        date: new Date(Date.now() - (89 - i) * 86400000).toISOString().slice(0, 10),
-        state: "outage", samples: 1, complete: false,
-      })),
-      observedSince: null, source: "observations", warning: "Incomplete history",
-    } });
-  });
+test("a failed refresh keeps recorded reports but marks the service unknown", async ({
+  page,
+}) => {
+  await mockFeeds(page, [
+    report({ active: true, status: "investigating", endedAt: null }),
+  ]);
   await page.goto("/");
-  await expect(page.locator(".bar.outage")).toHaveCount(90);
-  await page.getByRole("button", { name: "Databricks (AWS)", exact: true }).click();
-  await page.getByLabel("Filter components by region or group").selectOption("AP Southeast 2");
-  await page.getByRole("button", { name: "Only these results" }).click();
-  await page.getByRole("button", { name: "Save selection" }).click();
-  await expect(page.getByRole("heading", { name: "All tracked services operational" })).toBeVisible();
-  await expect(page.locator(".bar.outage")).toHaveCount(0);
-  await page.getByRole("slider").focus();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Databricks (AWS): Outage. View reports",
+    }),
+  ).toBeVisible();
+  await page.route("**/api/status/**", (route) => route.abort());
+  await page.getByRole("button", { name: "Refresh now" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "Databricks (AWS): Unknown. View reports",
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /SQL interruption/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("SQL interruption");
 });
 
-test("returning to a cached scope keeps its reports when the status refresh fails", async ({ page }) => {
-  const board = (component: string) => ({
-    ...defaultBoard(), monitors: [{ id: "databricks", componentIds: [component], group: "" }],
-  });
-  const incident = report({ active: true, status: "investigating", endedAt: null });
-  await mockFeeds(page);
-  let fail = false;
-  await page.route("**/api/status/**", route => {
-    const component = new URL(route.request().url()).searchParams.get("component");
-    if (fail && component === "sql:au") return route.abort();
-    const state = component === "sql:au" ? "outage" : "operational";
-    return route.fulfill({ json: {
-      id: "databricks", name: "Databricks (AWS)", statusUrl: "https://status.databricks.com",
-      checkedAt: new Date().toISOString(), fetchedAt: new Date().toISOString(), stale: false, state,
-      components: [{ id: component, name: "SQL", group: "", state }],
-      incidents: component === "sql:au" ? [incident] : [],
-    } });
-  });
-  await page.route("**/api/history/**", route => route.fulfill({ json: {
-    days: Array.from({ length: 90 }, (_, i) => ({
-      date: new Date(Date.now() - (89 - i) * 86400000).toISOString().slice(0, 10),
-      state: "outage", samples: 1, complete: false,
-    })), observedSince: null, source: "observations", warning: "Incomplete history",
-  } }));
-  await page.goto(`/${shareBoard(board("sql:au"))}`);
-  await expect(page.getByRole("button", { name: "Databricks (AWS): Outage. View reports" })).toBeVisible();
-  await page.evaluate(hash => { location.hash = hash; }, shareBoard(board("sql:us")));
-  await expect(page.getByRole("button", { name: "Databricks (AWS): Operational. View reports" })).toBeVisible();
-  fail = true;
-  await page.evaluate(hash => { location.hash = hash; }, shareBoard(board("sql:au")));
-  await expect(page.getByRole("button", { name: "Databricks (AWS): Unknown. View reports" })).toBeVisible();
-  await page.getByRole("slider").focus();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog")).toContainText(incident.title);
-  await expect(page.getByRole("link", { name: "View the provider’s incident" })).toHaveAttribute("href", incident.url);
-});
-
-test("status reports wait for a snapshot and keep Checking as their accessible name", async ({ page }) => {
+test("status reports wait for a snapshot and keep Checking as their accessible name", async ({
+  page,
+}) => {
   await mockFeeds(page);
   let release!: () => void;
-  const ready = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/api/status/**", async route => {
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/status/**", async (route) => {
     await ready;
     await route.fallback();
   });
   await page.goto("/");
-  await expect(page.getByRole("button", { name: /Checking\. View reports/ })).toContainText("Checking");
-  await expect(page.getByRole("button", { name: /Checking\. View reports/ })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Checking\. View reports/ }),
+  ).toContainText("Checking");
+  await expect(
+    page.getByRole("button", { name: /Checking\. View reports/ }),
+  ).toBeDisabled();
   release();
-  await expect(page.getByRole("button", { name: "Databricks (AWS): Outage. View reports" })).toBeEnabled();
-  await page.route("**/api/status/**", route => route.abort());
+  await expect(
+    page.getByRole("button", {
+      name: "Databricks (AWS): Outage. View reports",
+    }),
+  ).toBeEnabled();
+  await page.route("**/api/status/**", (route) => route.abort());
   await page.reload();
-  const failedStatus = page.getByRole("button", { name: "Databricks (AWS): Unknown. View reports" });
+  const failedStatus = page.getByRole("button", {
+    name: "Databricks (AWS): Unknown. View reports",
+  });
   await expect(failedStatus).toBeEnabled();
   await failedStatus.click();
-  await expect(page.getByRole("dialog")).toContainText("No provider report is available");
+  await expect(page.getByRole("dialog")).toContainText(
+    "No provider report is available",
+  );
 });
 
-test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
+test("incident lifecycle badges identify impact without colour", async ({
+  page,
+}, testInfo) => {
   const at = new Date().toISOString();
-  const reports: Incident[] = (["outage", "degraded"] as const).flatMap(state => ["investigating", "", "Checking"].map(status => ({
-    id: `${state}-${status}`, title: `${state} ${status || "empty"} incident`, status, state,
-    active: true, maintenance: false, startedAt: at,
-    updatedAt: at, endedAt: null, componentIds: [],
-    body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
-  })));
-  reports.push({
-    ...reports[0], id: "scheduled", title: "Scheduled maintenance", status: "scheduled",
-    state: "maintenance", maintenance: true, active: false,
-  }, {
-    ...reports[0], id: "completed", title: "Completed maintenance", status: "completed",
-    state: "maintenance", maintenance: true, active: false, endedAt: at,
-  });
+  const reports: Incident[] = (["outage", "degraded"] as const).flatMap(
+    (state) =>
+      ["investigating", "", "Checking"].map((status) => ({
+        id: `${state}-${status}`,
+        title: `${state} ${status || "empty"} incident`,
+        status,
+        state,
+        active: true,
+        maintenance: false,
+        startedAt: at,
+        updatedAt: at,
+        endedAt: null,
+        componentIds: [],
+        body: "Investigating service impact.",
+        url: "https://status.example.com/incident",
+        updates: [],
+      })),
+  );
+  reports.push(
+    {
+      ...reports[0],
+      id: "scheduled",
+      title: "Scheduled maintenance",
+      status: "scheduled",
+      state: "maintenance",
+      maintenance: true,
+      active: false,
+    },
+    {
+      ...reports[0],
+      id: "completed",
+      title: "Completed maintenance",
+      status: "completed",
+      state: "maintenance",
+      maintenance: true,
+      active: false,
+      endedAt: at,
+    },
+  );
   await mockFeeds(page, reports);
   await page.goto("/");
-  await page.getByRole("button", { name: "Incidents (6)", exact: true }).click();
-  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded", "Maintenance · scheduled", "Operational · completed"]);
-  await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
-  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"], ["Scheduled maintenance", "Maintenance · scheduled"], ["Completed maintenance", "Operational · completed"]]) {
+  await page
+    .getByRole("button", { name: "Incidents (6)", exact: true })
+    .click();
+  await expect(page.locator(".report .badge")).toHaveText([
+    "Outage · investigating",
+    "Outage",
+    "Outage",
+    "Degraded · investigating",
+    "Degraded",
+    "Degraded",
+    "Maintenance · scheduled",
+    "Operational · completed",
+  ]);
+  await page.screenshot({
+    path: testInfo.outputPath("incident-badges.png"),
+    fullPage: true,
+  });
+  for (const [title, label] of [
+    ["outage investigating incident", "Outage · investigating"],
+    ["outage empty incident", "Outage"],
+    ["outage Checking incident", "Outage"],
+    ["Scheduled maintenance", "Maintenance · scheduled"],
+    ["Completed maintenance", "Operational · completed"],
+  ]) {
     await page.getByRole("button", { name: new RegExp(title) }).click();
     await expect(page.getByRole("dialog").locator(".badge")).toHaveText(label);
     await page.keyboard.press("Escape");
