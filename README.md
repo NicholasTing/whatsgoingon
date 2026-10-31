@@ -112,13 +112,17 @@ CI runs these checks on pushes and pull requests, plus `npm audit --audit-level=
 
 The CodeQL workflow scans JavaScript and TypeScript on public repositories and skips private repositories. It also runs weekly and supports manual runs. See [GitHub's code scanning availability](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning). Standard GitHub-hosted runners are [free for public repositories](https://docs.github.com/en/billing/concepts/product-billing/github-actions); private repositories use the owner's included allowance.
 
-CodeRabbit is optional. Its [open-source plan](https://www.coderabbit.ai/pricing) offers free reviews for public repositories after an owner installs its GitHub App. It is not bundled with the app or required by CI.
+Pull requests receive automated reviews from [CodeRabbit](https://www.coderabbit.ai), configured in `.coderabbit.yaml`. It is free for public repositories and is not bundled with the app or required by CI. Forks need their own installation if they want it.
 
 ## Feedback
 
 Use **Request a feature** or **Report a bug** below the dashboard to open the matching GitHub issue form. You can also [browse existing issues](https://github.com/NicholasTing/whatsgoingon/issues). Submitting an issue requires a GitHub account and access to the repository; a private repository cannot accept reports from the general public.
 
 The forms are configured in `.github/ISSUE_TEMPLATE/` and apply the `bug` or `enhancement` label. GitHub Discussions can be enabled separately for broader conversations; issue forms cover the feedback flow here. If you fork the project, change `GITHUB` in `src/App.tsx` to direct feedback to your repository.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and the pull request process, and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Limits
 
