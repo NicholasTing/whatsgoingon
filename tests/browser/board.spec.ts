@@ -510,17 +510,20 @@ test("compact navigation keeps setup and feedback accessible on desktop and mobi
 
 test("incident lifecycle badges identify impact without colour", async ({ page }, testInfo) => {
   const at = new Date().toISOString();
-  const reports: Incident[] = (["outage", "degraded"] as const).map(state => ({
-    id: state, title: `${state} incident`, status: "investigating", state,
+  const reports: Incident[] = (["outage", "degraded"] as const).flatMap(state => ["investigating", "", "Checking"].map(status => ({
+    id: `${state}-${status}`, title: `${state} ${status || "empty"} incident`, status, state,
     active: true, maintenance: false, startedAt: at,
     updatedAt: at, endedAt: null, componentIds: [],
     body: "Investigating service impact.", url: "https://status.example.com/incident", updates: [],
-  }));
+  })));
   await mockFeeds(page, reports);
   await page.goto("/");
-  await page.getByRole("button", { name: "Incidents (2)", exact: true }).click();
-  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Degraded · investigating"]);
+  await page.getByRole("button", { name: "Incidents (6)", exact: true }).click();
+  await expect(page.locator(".report .badge")).toHaveText(["Outage · investigating", "Outage", "Outage", "Degraded · investigating", "Degraded", "Degraded"]);
   await page.screenshot({ path: testInfo.outputPath("incident-badges.png"), fullPage: true });
-  await page.getByRole("button", { name: /outage incident/ }).click();
-  await expect(page.getByRole("dialog").locator(".badge")).toHaveText("Outage · investigating");
+  for (const [title, label] of [["outage investigating incident", "Outage · investigating"], ["outage empty incident", "Outage"], ["outage Checking incident", "Outage"]]) {
+    await page.getByRole("button", { name: new RegExp(title) }).click();
+    await expect(page.getByRole("dialog").locator(".badge")).toHaveText(label);
+    await page.keyboard.press("Escape");
+  }
 });

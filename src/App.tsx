@@ -753,7 +753,7 @@ export function App() {
                           ? "maintenance"
                           : "operational"
                     }
-                    text={i.status.replaceAll("_", " ")}
+                    text={i.status && i.status !== "Checking" ? i.status.replaceAll("_", " ") : undefined}
                   />
                 </button>
               ))}
@@ -891,7 +891,7 @@ export function App() {
                     ? selectedIncident.state
                     : "operational"
                 }
-                text={selectedIncident.status.replaceAll("_", " ")}
+                text={selectedIncident.status && selectedIncident.status !== "Checking" ? selectedIncident.status.replaceAll("_", " ") : undefined}
               />
               <span>{selectedIncident.providerName}</span>
             </div>
