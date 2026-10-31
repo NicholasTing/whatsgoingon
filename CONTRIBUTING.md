@@ -17,7 +17,8 @@ By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Co
 Use Node.js 24 or later.
 
 ```sh
-git clone https://github.com/<your-username>/whatsgoingon.git
+# Replace YOUR_USERNAME with the username of your fork.
+git clone https://github.com/YOUR_USERNAME/whatsgoingon.git
 cd whatsgoingon
 npm ci
 npm run dev
