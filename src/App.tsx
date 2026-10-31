@@ -658,7 +658,7 @@ export function App() {
                           </div>
                           <button
                             className="status-button"
-                            aria-label={`${name}: ${labels[snapshot?.state ?? "unknown"]}. View reports`}
+                            aria-label={`${name}: ${!snapshot && !failures[monitor.id] ? "Checking" : labels[snapshot?.state ?? "unknown"]}. View reports`}
                             onClick={() => openReports(monitor, name, snapshot)}
                           >
                             <Badge

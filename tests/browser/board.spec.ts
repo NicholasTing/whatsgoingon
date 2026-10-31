@@ -618,3 +618,18 @@ test("compact navigation keeps setup and feedback accessible on desktop and mobi
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Request a feature" })).toBeFocused();
 });
+
+
+test("loading status has an accessible name matching Checking", async ({ page }) => {
+  await mockFeeds(page);
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/status/**", async route => {
+    await ready;
+    await route.fallback();
+  });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /Checking\. View reports/ })).toContainText("Checking");
+  release();
+  await expect(page.getByRole("button", { name: "Databricks (AWS): Outage. View reports" })).toBeVisible();
+});
